@@ -151,3 +151,4 @@ export const CommandPalette = ({ isOpen, onClose, onTriggerScan }) => {
 };
 
 export default CommandPalette;
+
