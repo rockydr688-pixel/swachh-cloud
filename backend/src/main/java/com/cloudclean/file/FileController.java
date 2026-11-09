@@ -64,3 +64,4 @@ public class FileController {
         return ResponseEntity.ok(ApiResponse.success("File moved to trash successfully", null));
     }
 }
+

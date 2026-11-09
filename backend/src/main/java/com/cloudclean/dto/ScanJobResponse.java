@@ -144,3 +144,4 @@ public class ScanJobResponse {
         this.createdAt = createdAt;
     }
 }
+

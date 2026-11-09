@@ -30,3 +30,4 @@ public class EncryptionUtilsTest {
         assertEquals("", encryptionUtils.decrypt(""));
     }
 }
+

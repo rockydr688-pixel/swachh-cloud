@@ -14,3 +14,4 @@ public class CloudCleanApplication {
         SpringApplication.run(CloudCleanApplication.class, args);
     }
 }
+

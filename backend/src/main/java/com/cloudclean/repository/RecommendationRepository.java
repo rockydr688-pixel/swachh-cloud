@@ -13,3 +13,4 @@ public interface RecommendationRepository extends MongoRepository<Recommendation
     List<Recommendation> findByUserIdAndStatusOrderByCreatedAtDesc(String userId, String status);
     Optional<Recommendation> findByIdAndUserId(String id, String userId);
 }
+

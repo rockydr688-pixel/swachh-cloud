@@ -165,3 +165,4 @@ public class RecommendationResponse {
         this.createdAt = createdAt;
     }
 }
+

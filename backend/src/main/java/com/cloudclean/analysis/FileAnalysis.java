@@ -122,3 +122,4 @@ public class FileAnalysis {
         this.createdAt = createdAt;
     }
 }
+

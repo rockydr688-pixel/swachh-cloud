@@ -60,3 +60,4 @@ public class RegisterRequest {
         this.company = company;
     }
 }
+

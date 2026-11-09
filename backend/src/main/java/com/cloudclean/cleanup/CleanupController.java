@@ -43,3 +43,4 @@ public class CleanupController {
         return ResponseEntity.ok(ApiResponse.success(history));
     }
 }
+

@@ -15,3 +15,4 @@ public interface CleanupHistoryRepository extends MongoRepository<CleanupHistory
     Page<CleanupHistory> findByUserIdOrderByTimestampDesc(String userId, Pageable pageable);
     Optional<CleanupHistory> findByIdAndUserId(String id, String userId);
 }
+

@@ -177,3 +177,4 @@ public class ScanService {
         scanJobRepository.saveAll(List.of(j1, j2));
     }
 }
+

@@ -60,3 +60,4 @@ public class ScanController {
         return ResponseEntity.ok(ApiResponse.success("Scan job cancelled successfully", response));
     }
 }
+

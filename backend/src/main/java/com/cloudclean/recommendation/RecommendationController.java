@@ -51,3 +51,4 @@ public class RecommendationController {
         return ResponseEntity.ok(ApiResponse.success("Recommendation status updated", updated));
     }
 }
+

@@ -13,3 +13,4 @@ public interface DuplicateGroupRepository extends MongoRepository<DuplicateGroup
     Optional<DuplicateGroup> findByUserIdAndHash(String userId, String hash);
     void deleteByUserId(String userId);
 }
+

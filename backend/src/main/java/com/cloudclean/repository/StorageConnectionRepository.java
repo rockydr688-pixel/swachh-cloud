@@ -13,3 +13,4 @@ public interface StorageConnectionRepository extends MongoRepository<StorageConn
     Optional<StorageConnection> findByIdAndUserId(String id, String userId);
     Optional<StorageConnection> findByUserIdAndType(String userId, String type);
 }
+

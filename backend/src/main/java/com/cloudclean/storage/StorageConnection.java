@@ -198,3 +198,4 @@ public class StorageConnection {
         this.updatedAt = updatedAt;
     }
 }
+

@@ -16,3 +16,4 @@ public interface ScanJobRepository extends MongoRepository<ScanJob, String> {
     Optional<ScanJob> findByIdAndUserId(String id, String userId);
     List<ScanJob> findByUserIdAndStatus(String userId, String status);
 }
+

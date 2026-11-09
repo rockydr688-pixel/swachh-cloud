@@ -173,3 +173,4 @@ public class DashboardMetricsResponse {
         this.recentScans = recentScans;
     }
 }
+

@@ -37,3 +37,4 @@ public interface FileItemRepository extends MongoRepository<FileItem, String> {
 
     List<FileItem> findByUserIdAndSizeBytesGreaterThanEqualAndIsDeletedFalse(String userId, long minSize);
 }
+

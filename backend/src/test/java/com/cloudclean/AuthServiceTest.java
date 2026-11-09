@@ -104,3 +104,4 @@ public class AuthServiceTest {
         assertThrows(UnauthorizedException.class, () -> authService.login(request));
     }
 }
+

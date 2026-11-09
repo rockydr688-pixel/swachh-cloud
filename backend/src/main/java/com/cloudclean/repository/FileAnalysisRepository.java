@@ -14,3 +14,4 @@ public interface FileAnalysisRepository extends MongoRepository<FileAnalysis, St
     Optional<FileAnalysis> findByUserIdAndFileIdAndAnalysisType(String userId, String fileId, String analysisType);
     void deleteByFileId(String fileId);
 }
+

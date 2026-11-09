@@ -86,3 +86,4 @@ public class ScanRequest {
         this.inactiveDaysThreshold = inactiveDaysThreshold;
     }
 }
+

@@ -122,3 +122,4 @@ public class RecommendationService {
         return recommendationRepository.saveAll(recs);
     }
 }
+

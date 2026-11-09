@@ -194,3 +194,4 @@ public class Recommendation {
         this.updatedAt = updatedAt;
     }
 }
+
