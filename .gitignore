@@ -12,10 +12,19 @@ dist
 dist-ssr
 *.local
 
+# Maven & Java
+target/
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
+*.iml
 .DS_Store
 *.suo
 *.ntvs*
@@ -26,4 +35,3 @@ dist-ssr
 # Environment
 .env.local
 .env.*.local
-

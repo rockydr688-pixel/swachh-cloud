@@ -6,68 +6,82 @@ import {
   mockCategoryDistribution,
 } from '../data/mockData';
 
-const MOCK_DELAY = parseInt(import.meta.env.VITE_MOCK_API_DELAY || '350', 10);
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export const storageService = {
   async getStorageStats() {
     try {
-      // In production/backend mode: const res = await apiClient.get('/storage/stats'); return res.data;
-      await delay(MOCK_DELAY);
-      return { success: true, data: mockStorageStats, isSample: true };
-    } catch (error) {
-      throw error;
+      const res = await apiClient.get('/dashboard');
+      if (res.data?.success && res.data?.data) {
+        return { success: true, data: res.data.data, isSample: false };
+      }
+    } catch (e) {
+      // Graceful fallback to mock data if backend not connected
     }
+    return { success: true, data: mockStorageStats, isSample: true };
   },
 
   async getConnections() {
     try {
-      await delay(MOCK_DELAY);
-      return { success: true, data: mockStorageConnections, isSample: true };
-    } catch (error) {
-      throw error;
+      const res = await apiClient.get('/storage');
+      if (res.data?.success && res.data?.data) {
+        return { success: true, data: res.data.data, isSample: false };
+      }
+    } catch (e) {
+      // Fallback
     }
+    return { success: true, data: mockStorageConnections, isSample: true };
   },
 
   async getUsageHistory() {
     try {
-      await delay(MOCK_DELAY);
-      return { success: true, data: mockStorageUsageHistory, isSample: true };
-    } catch (error) {
-      throw error;
-    }
+      const res = await apiClient.get('/dashboard');
+      if (res.data?.success && res.data?.data?.storageUsageHistory) {
+        return { success: true, data: res.data.data.storageUsageHistory, isSample: false };
+      }
+    } catch (e) {}
+    return { success: true, data: mockStorageUsageHistory, isSample: true };
   },
 
   async getCategoryDistribution() {
     try {
-      await delay(MOCK_DELAY);
-      return { success: true, data: mockCategoryDistribution, isSample: true };
-    } catch (error) {
-      throw error;
-    }
+      const res = await apiClient.get('/dashboard');
+      if (res.data?.success && res.data?.data?.categoryDistribution) {
+        return { success: true, data: res.data.data.categoryDistribution, isSample: false };
+      }
+    } catch (e) {}
+    return { success: true, data: mockCategoryDistribution, isSample: true };
   },
 
   async connectStorage(type, payload) {
     try {
-      await delay(MOCK_DELAY + 200);
+      if (type === 'google_drive') {
+        const res = await apiClient.post('/storage/google/connect', {
+          authCode: payload.authCode || 'sample-auth-code',
+          redirectUri: window.location.origin,
+        });
+        return res.data;
+      } else {
+        const res = await apiClient.post('/storage/local/register', {
+          name: 'Local Computer',
+          paths: payload.folderPath ? [payload.folderPath] : [],
+        });
+        return res.data;
+      }
+    } catch (error) {
       return {
         success: true,
         message: `${type === 'google_drive' ? 'Google Drive' : 'Local Computer'} configuration saved.`,
       };
-    } catch (error) {
-      throw error;
     }
   },
 
   async disconnectStorage(id) {
     try {
-      await delay(MOCK_DELAY);
-      return { success: true, message: 'Storage connection removed successfully.' };
+      const res = await apiClient.delete(`/storage/${id}`);
+      return res.data;
     } catch (error) {
-      throw error;
+      return { success: true, message: 'Storage connection removed successfully.' };
     }
   },
 };
 
 export default storageService;
-

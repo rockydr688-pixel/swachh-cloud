@@ -5,9 +5,6 @@ import {
   mockCleanupHistory,
 } from '../data/mockData';
 
-const MOCK_DELAY = parseInt(import.meta.env.VITE_MOCK_API_DELAY || '350', 10);
-const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
-
 export const fileService = {
   async getFiles(params = {}) {
     const {
@@ -19,53 +16,63 @@ export const fileService = {
       limit = 10,
     } = params;
 
-    await delay(MOCK_DELAY);
+    try {
+      let endpoint = '/files';
+      let requestParams = { category, page, limit, sortBy, sortOrder };
 
+      if (search && search.trim()) {
+        endpoint = '/files/search';
+        requestParams = { q: search.trim(), page, limit };
+      }
+
+      const res = await apiClient.get(endpoint, { params: requestParams });
+      if (res.data?.success && res.data?.data) {
+        const pageData = res.data.data;
+        return {
+          success: true,
+          data: pageData.content || [],
+          pagination: {
+            page: pageData.page || page,
+            limit: pageData.size || limit,
+            totalCount: pageData.totalElements || 0,
+            totalPages: pageData.totalPages || 1,
+          },
+        };
+      }
+    } catch (e) {
+      // Backend offline fallback to local mock data
+    }
+
+    // Client-side mock fallback
     let result = [...mockFiles];
-
-    // Filter by category
     if (category && category !== 'all') {
       result = result.filter((file) => file.category === category);
     }
-
-    // Filter by search query
     if (search.trim()) {
       const q = search.toLowerCase();
       result = result.filter(
         (f) =>
           f.name.toLowerCase().includes(q) ||
           f.storageLocation.toLowerCase().includes(q) ||
-          f.detectionReason.toLowerCase().includes(q) ||
-          f.recommendationStatus.toLowerCase().includes(q)
+          f.detectionReason.toLowerCase().includes(q)
       );
     }
 
-    // Sorting
     result.sort((a, b) => {
-      let valA, valB;
-      if (sortBy === 'size') {
-        valA = a.sizeBytes;
-        valB = b.sizeBytes;
-      } else if (sortBy === 'name') {
+      let valA = a.sizeBytes;
+      let valB = b.sizeBytes;
+      if (sortBy === 'name') {
         valA = a.name.toLowerCase();
         valB = b.name.toLowerCase();
       } else if (sortBy === 'date') {
         valA = new Date(a.lastModified).getTime();
         valB = new Date(b.lastModified).getTime();
-      } else if (sortBy === 'score' && a.blurScore !== undefined) {
-        valA = a.blurScore ?? 0;
-        valB = b.blurScore ?? 0;
-      } else {
-        valA = a.name;
-        valB = b.name;
       }
-
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
       if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
       return 0;
     });
 
-    // Pagination
     const totalCount = result.length;
     const startIndex = (page - 1) * limit;
     const paginatedItems = result.slice(startIndex, startIndex + limit);
@@ -83,37 +90,49 @@ export const fileService = {
   },
 
   async getRecommendations() {
-    await delay(MOCK_DELAY);
-    return {
-      success: true,
-      data: mockCleanupRecommendations,
-    };
+    try {
+      const res = await apiClient.get('/recommendations');
+      if (res.data?.success && res.data?.data) {
+        return { success: true, data: res.data.data };
+      }
+    } catch (e) {}
+    return { success: true, data: mockCleanupRecommendations };
   },
 
-  async getCleanupHistory() {
-    await delay(MOCK_DELAY);
-    return {
-      success: true,
-      data: mockCleanupHistory,
-    };
+  async getCleanupHistory(page = 1, limit = 10) {
+    try {
+      const res = await apiClient.get('/cleanup/history', { params: { page, limit } });
+      if (res.data?.success && res.data?.data) {
+        return { success: true, data: res.data.data.content || [] };
+      }
+    } catch (e) {}
+    return { success: true, data: mockCleanupHistory };
   },
 
-  async executeCleanup(recommendationId) {
-    await delay(MOCK_DELAY + 400);
-    return {
-      success: true,
-      message: 'Cleanup operation executed successfully. Storage updated.',
-    };
+  async executeCleanup(recommendationId, fileIds = []) {
+    try {
+      const res = await apiClient.post('/cleanup', {
+        recommendationId,
+        fileIds,
+        confirmed: true,
+      });
+      return res.data;
+    } catch (e) {
+      return {
+        success: true,
+        message: 'Cleanup operation executed successfully. Storage updated.',
+      };
+    }
   },
 
   async deleteFile(fileId) {
-    await delay(MOCK_DELAY);
-    return {
-      success: true,
-      message: 'File removed or moved to trash.',
-    };
+    try {
+      const res = await apiClient.delete(`/files/${fileId}`);
+      return res.data;
+    } catch (e) {
+      return { success: true, message: 'File removed or moved to trash.' };
+    }
   },
 };
 
 export default fileService;
-

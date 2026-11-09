@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 15000,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -22,18 +22,24 @@ apiClient.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// Response interceptor for centralized error formatting
+// Response interceptor for centralized error formatting and token expiration
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
+    if (error.response?.status === 401) {
+      // Clear expired credentials if rejected by backend
+      localStorage.removeItem('cloudclean_token');
+      localStorage.removeItem('cloudclean_user');
+    }
+
     const message =
       error.response?.data?.message ||
-      error.response?.data?.detail ||
+      error.response?.data?.errors ||
       error.message ||
       'An unexpected network error occurred.';
-    return Promise.reject(new Error(message));
+
+    return Promise.reject(new Error(typeof message === 'object' ? JSON.stringify(message) : message));
   }
 );
 
 export default apiClient;
-

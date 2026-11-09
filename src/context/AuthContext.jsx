@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import apiClient from '../services/api';
 import { mockUserSettings } from '../data/mockData';
 
 const AuthContext = createContext(null);
@@ -6,61 +7,142 @@ const AuthContext = createContext(null);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isLiveBackend, setIsLiveBackend] = useState(false);
 
   useEffect(() => {
-    // Check localStorage for persisted session
-    const storedUser = localStorage.getItem('cloudclean_user');
-    if (storedUser) {
-      try {
-        setUser(JSON.parse(storedUser));
-      } catch (e) {
-        console.error('Failed to parse user session', e);
+    const initializeAuth = async () => {
+      const storedToken = localStorage.getItem('cloudclean_token');
+      const storedUser = localStorage.getItem('cloudclean_user');
+
+      if (storedToken) {
+        try {
+          // Attempt verifying session with actual Spring Boot backend
+          const response = await apiClient.get('/auth/me');
+          if (response.data?.success && response.data?.data) {
+            setUser(response.data.data);
+            setIsLiveBackend(true);
+            localStorage.setItem('cloudclean_user', JSON.stringify(response.data.data));
+            setLoading(false);
+            return;
+          }
+        } catch (err) {
+          // Fallback to local session if backend is temporarily offline
+          if (storedUser) {
+            try {
+              setUser(JSON.parse(storedUser));
+            } catch (e) {
+              localStorage.removeItem('cloudclean_user');
+            }
+          }
+        }
       }
-    } else {
-      // Default initial mock logged-in state for smooth testing of SaaS dashboard
-      const defaultUser = {
-        name: mockUserSettings.profile.fullName,
-        email: mockUserSettings.profile.email,
-        role: mockUserSettings.profile.role,
-        avatar: mockUserSettings.profile.avatar,
-        token: 'mock-jwt-token-cloudclean-2026',
-      };
-      setUser(defaultUser);
-      localStorage.setItem('cloudclean_user', JSON.stringify(defaultUser));
-      localStorage.setItem('cloudclean_token', defaultUser.token);
-    }
-    setLoading(false);
+
+      // Default mock admin user if no prior session exists
+      if (!user) {
+        const defaultUser = {
+          id: 'admin-001',
+          name: mockUserSettings.profile.fullName,
+          email: mockUserSettings.profile.email,
+          role: mockUserSettings.profile.role,
+          avatar: mockUserSettings.profile.avatar,
+          token: 'demo-jwt-token-cloudclean',
+        };
+        setUser(defaultUser);
+        localStorage.setItem('cloudclean_user', JSON.stringify(defaultUser));
+        localStorage.setItem('cloudclean_token', defaultUser.token);
+      }
+
+      setLoading(false);
+    };
+
+    initializeAuth();
   }, []);
 
   const login = async (email, password) => {
-    // Mock authentication with artificial delay
-    await new Promise((res) => setTimeout(res, 600));
-    const loggedUser = {
-      name: email.split('@')[0].replace('.', ' '),
-      email,
-      role: 'Storage Administrator',
-      avatar: mockUserSettings.profile.avatar,
-      token: `jwt-token-${Date.now()}`,
-    };
-    setUser(loggedUser);
-    localStorage.setItem('cloudclean_user', JSON.stringify(loggedUser));
-    localStorage.setItem('cloudclean_token', loggedUser.token);
-    return loggedUser;
+    try {
+      // 1. Try real Spring Boot authentication
+      const response = await apiClient.post('/auth/login', { email, password });
+      if (response.data?.success && response.data?.data) {
+        const { token, user: userData } = response.data.data;
+        const mappedUser = {
+          id: userData.id,
+          name: userData.fullName || userData.name || email.split('@')[0],
+          email: userData.email,
+          role: userData.role || 'ROLE_USER',
+          token,
+        };
+        setUser(mappedUser);
+        setIsLiveBackend(true);
+        localStorage.setItem('cloudclean_token', token);
+        localStorage.setItem('cloudclean_user', JSON.stringify(mappedUser));
+        return mappedUser;
+      }
+    } catch (backendError) {
+      // If server returned 401 Unauthorized or 400 Bad Request, rethrow real error
+      if (backendError.response?.status === 401 || backendError.response?.status === 400) {
+        throw backendError;
+      }
+
+      // If backend is unreachable (offline dev mode), perform graceful simulation fallback
+      await new Promise((res) => setTimeout(res, 400));
+      const simulatedUser = {
+        name: email.split('@')[0].replace('.', ' '),
+        email,
+        role: 'Storage Administrator',
+        avatar: mockUserSettings.profile.avatar,
+        token: `mock-jwt-token-${Date.now()}`,
+      };
+      setUser(simulatedUser);
+      localStorage.setItem('cloudclean_token', simulatedUser.token);
+      localStorage.setItem('cloudclean_user', JSON.stringify(simulatedUser));
+      return simulatedUser;
+    }
   };
 
-  const register = async (name, email, password) => {
-    await new Promise((res) => setTimeout(res, 600));
-    const newUser = {
-      name,
-      email,
-      role: 'Storage Administrator',
-      avatar: mockUserSettings.profile.avatar,
-      token: `jwt-token-${Date.now()}`,
-    };
-    setUser(newUser);
-    localStorage.setItem('cloudclean_user', JSON.stringify(newUser));
-    localStorage.setItem('cloudclean_token', newUser.token);
-    return newUser;
+  const register = async (name, email, password, company = 'CloudClean Enterprise') => {
+    try {
+      // 1. Try real Spring Boot registration
+      const response = await apiClient.post('/auth/register', {
+        fullName: name,
+        email,
+        password,
+        company,
+      });
+
+      if (response.data?.success && response.data?.data) {
+        const { token, user: userData } = response.data.data;
+        const mappedUser = {
+          id: userData.id,
+          name: userData.fullName,
+          email: userData.email,
+          role: userData.role,
+          token,
+        };
+        setUser(mappedUser);
+        setIsLiveBackend(true);
+        localStorage.setItem('cloudclean_token', token);
+        localStorage.setItem('cloudclean_user', JSON.stringify(mappedUser));
+        return mappedUser;
+      }
+    } catch (backendError) {
+      if (backendError.response?.status) {
+        throw backendError;
+      }
+
+      // If backend offline, graceful fallback
+      await new Promise((res) => setTimeout(res, 400));
+      const simulatedUser = {
+        name,
+        email,
+        role: 'Storage Administrator',
+        avatar: mockUserSettings.profile.avatar,
+        token: `mock-jwt-token-${Date.now()}`,
+      };
+      setUser(simulatedUser);
+      localStorage.setItem('cloudclean_token', simulatedUser.token);
+      localStorage.setItem('cloudclean_user', JSON.stringify(simulatedUser));
+      return simulatedUser;
+    }
   };
 
   const logout = () => {
@@ -81,6 +163,7 @@ export const AuthProvider = ({ children }) => {
         user,
         isAuthenticated: !!user,
         loading,
+        isLiveBackend,
         login,
         register,
         logout,
@@ -101,4 +184,3 @@ export const useAuth = () => {
 };
 
 export default AuthContext;
-

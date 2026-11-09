@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { StorageProvider } from './context/StorageContext';
+import { ToastProvider } from './context/ToastContext';
 import AppLayout from './components/layout/AppLayout';
 
 // Pages
@@ -42,43 +43,44 @@ export const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <StorageProvider>
-          <Routes>
-            {/* Public Auth Page */}
-            <Route path="/auth" element={<AuthPage />} />
+        <ToastProvider>
+          <StorageProvider>
+            <Routes>
+              {/* Public Auth Page */}
+              <Route path="/auth" element={<AuthPage />} />
 
-            {/* Application Main Layout Pages */}
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <AppLayout />
-                </ProtectedRoute>
-              }
-            >
-              <Route index element={<Navigate to="/dashboard" replace />} />
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="connections" element={<StorageConnections />} />
-              <Route path="scanner" element={<FileScanner />} />
-              <Route path="files" element={<AllFiles />} />
-              <Route path="files/duplicates" element={<DuplicateFiles />} />
-              <Route path="files/blurry" element={<BlurryImages />} />
-              <Route path="files/large" element={<LargeFiles />} />
-              <Route path="files/inactive" element={<InactiveFiles />} />
-              <Route path="recommendations" element={<CleanupRecommendations />} />
-              <Route path="history" element={<CleanupHistory />} />
-              <Route path="reports" element={<ReportsAnalytics />} />
-              <Route path="settings" element={<UserSettings />} />
-            </Route>
+              {/* Application Main Layout Pages */}
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <AppLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<Navigate to="/dashboard" replace />} />
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="connections" element={<StorageConnections />} />
+                <Route path="scanner" element={<FileScanner />} />
+                <Route path="files" element={<AllFiles />} />
+                <Route path="files/duplicates" element={<DuplicateFiles />} />
+                <Route path="files/blurry" element={<BlurryImages />} />
+                <Route path="files/large" element={<LargeFiles />} />
+                <Route path="files/inactive" element={<InactiveFiles />} />
+                <Route path="recommendations" element={<CleanupRecommendations />} />
+                <Route path="history" element={<CleanupHistory />} />
+                <Route path="reports" element={<ReportsAnalytics />} />
+                <Route path="settings" element={<UserSettings />} />
+              </Route>
 
-            {/* Catch-all redirect */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </StorageProvider>
+              {/* Catch-all redirect */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </StorageProvider>
+        </ToastProvider>
       </AuthProvider>
     </BrowserRouter>
   );
 };
 
 export default App;
-
