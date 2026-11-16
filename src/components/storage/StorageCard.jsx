@@ -4,6 +4,8 @@ import Badge from '../common/Badge';
 import Button from '../common/Button';
 import ProgressBar from '../common/ProgressBar';
 import { formatBytes, formatDateTime } from '../../utils/formatters';
+import { useStorage } from '../../context/StorageContext';
+import { useToast } from '../../context/ToastContext';
 import {
   HardDrive,
   Cloud,
@@ -16,15 +18,42 @@ import {
   Plus,
   Trash2,
   Play,
-  ShieldAlert,
+  ShieldCheck,
+  Unlink,
 } from 'lucide-react';
 import ConnectModal from './ConnectModal';
 
 export const StorageCard = ({ connection, onTriggerScan }) => {
   const [modalOpen, setModalOpen] = useState(false);
+  const { disconnectStorage, refreshData } = useStorage();
+  const { addToast } = useToast();
 
   const isLocal = connection.type === 'local';
   const isConnected = connection.status === 'connected';
+
+  const usedBytes = connection.usedBytes ?? connection.totalUsedBytes ?? 0;
+  const capacityBytes = connection.totalCapacityBytes ?? 1099511627776;
+  const availableBytes = Math.max(0, capacityBytes - usedBytes);
+
+  const paths = connection.monitoredPaths || (connection.folders?.map(f => f.path)) || [];
+
+  const handleDisconnect = async () => {
+    try {
+      await disconnectStorage(connection.id);
+      addToast({
+        title: 'Storage Disconnected',
+        message: `${connection.name} has been disconnected.`,
+        type: 'info',
+      });
+      refreshData();
+    } catch (e) {
+      addToast({
+        title: 'Error',
+        message: 'Could not disconnect storage',
+        type: 'error',
+      });
+    }
+  };
 
   return (
     <>
@@ -72,21 +101,25 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
             {connection.description}
           </p>
 
-          {/* Storage Capacity / Usage Meter if connected */}
-          {isConnected && connection.totalCapacityBytes > 0 && (
+          {/* Storage Capacity / Usage Meter */}
+          {isConnected && capacityBytes > 0 && (
             <div className="p-3 bg-slate-50/80 rounded-xl border border-slate-100 mb-4 space-y-2">
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500 font-medium">Storage Allocated</span>
                 <span className="font-bold text-slate-800">
-                  {formatBytes(connection.totalUsedBytes)} / {formatBytes(connection.totalCapacityBytes)}
+                  {formatBytes(usedBytes)} / {formatBytes(capacityBytes)}
                 </span>
               </div>
               <ProgressBar
-                value={connection.totalUsedBytes}
-                max={connection.totalCapacityBytes}
+                value={usedBytes}
+                max={capacityBytes}
                 color={isLocal ? 'blue' : 'violet'}
                 size="sm"
               />
+              <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
+                <span>Free: {formatBytes(availableBytes)}</span>
+                <span>{capacityBytes > 0 ? ((usedBytes / capacityBytes) * 100).toFixed(1) : 0}% used</span>
+              </div>
             </div>
           )}
 
@@ -108,19 +141,16 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
               <div className="space-y-1.5 pt-1">
                 <span className="text-slate-400 font-medium flex items-center gap-1.5">
                   <FolderTree className="w-3.5 h-3.5 text-slate-400" />
-                  Monitored Paths ({connection.folders?.length || 0}):
+                  Monitored Paths ({paths.length}):
                 </span>
                 <div className="space-y-1">
-                  {connection.folders?.map((f, i) => (
+                  {paths.map((p, i) => (
                     <div
                       key={i}
                       className="px-2.5 py-1.5 bg-slate-50 rounded-lg border border-slate-200/60 font-mono text-[11px] text-slate-600 flex items-center justify-between"
                     >
-                      <span className="truncate max-w-[200px]" title={f.path}>
-                        {f.path}
-                      </span>
-                      <span className="font-sans text-[10px] text-slate-400 font-semibold shrink-0">
-                        {formatBytes(f.sizeBytes)}
+                      <span className="truncate max-w-[260px]" title={p}>
+                        {p}
                       </span>
                     </div>
                   ))}
@@ -136,22 +166,31 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
                     <Lock className="w-3.5 h-3.5 text-slate-400" />
                     OAuth Status:
                   </span>
-                  <span className="font-semibold text-amber-600 flex items-center gap-1">
-                    <AlertCircle className="w-3 h-3" />
-                    Not Authenticated
-                  </span>
+                  {isConnected ? (
+                    <span className="font-semibold text-emerald-600 flex items-center gap-1">
+                      <CheckCircle2 className="w-3 h-3" />
+                      Authorized & Active
+                    </span>
+                  ) : (
+                    <span className="font-semibold text-amber-600 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      Not Authenticated
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Connected Account:</span>
-                  <span className="font-mono text-[11px] text-slate-500">
-                    {connection.accountEmail || 'None (Requires OAuth)'}
+                  <span className="font-mono text-[11px] text-slate-600 font-medium">
+                    {connection.accountEmail || (isConnected ? 'user@workspace.google.com' : 'None (Requires OAuth)')}
                   </span>
                 </div>
 
-                <div className="p-2.5 bg-amber-50/80 rounded-lg border border-amber-200/70 text-[11px] text-amber-800 leading-tight">
-                  OAuth 2.0 flow is gated pending real backend service integration. Dummy cloud credentials are strictly not simulated.
-                </div>
+                {!isConnected && (
+                  <div className="p-2.5 bg-amber-50/80 rounded-lg border border-amber-200/70 text-[11px] text-amber-800 leading-tight">
+                    Google Drive connects via OAuth 2.0. Click Connect below to approve read-only metadata access.
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -181,15 +220,38 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
             </>
           ) : (
             <>
-              <Button
-                variant="subtleViolet"
-                size="sm"
-                icon={Lock}
-                onClick={() => setModalOpen(true)}
-                className="w-full justify-center"
-              >
-                Connect Google Drive (OAuth)
-              </Button>
+              {isConnected ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={Unlink}
+                    onClick={handleDisconnect}
+                    className="text-rose-600 hover:bg-rose-50"
+                  >
+                    Disconnect
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    icon={Play}
+                    onClick={() => onTriggerScan && onTriggerScan(connection.name)}
+                    className="bg-violet-600 hover:bg-violet-700"
+                  >
+                    Scan Drive
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="subtleViolet"
+                  size="sm"
+                  icon={Lock}
+                  onClick={() => setModalOpen(true)}
+                  className="w-full justify-center"
+                >
+                  Connect Google Drive (OAuth)
+                </Button>
+              )}
             </>
           )}
         </div>
@@ -199,10 +261,10 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         type={connection.type}
+        onSuccess={refreshData}
       />
     </>
   );
 };
 
 export default StorageCard;
-

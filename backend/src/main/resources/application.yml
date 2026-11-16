@@ -28,6 +28,10 @@ app:
     allow-credentials: true
   encryption:
     secret: ${ENCRYPTION_SECRET:cloudclean_oauth_token_encryption_key_32chars!}
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:mock-google-client-id.apps.googleusercontent.com}
+    client-secret: ${GOOGLE_CLIENT_SECRET:mock-google-client-secret}
+    redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:3000/oauth/callback}
 
 # Swagger OpenAPI Documentation
 springdoc:

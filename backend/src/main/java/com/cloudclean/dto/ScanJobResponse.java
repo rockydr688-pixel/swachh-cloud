@@ -9,10 +9,15 @@ public class ScanJobResponse {
     private String id;
     private String target;
     private String storageType;
+    private String storageConnectionId;
     private String status;
     private int progressPercent;
     private int totalFilesScanned;
     private int flaggedFilesCount;
+    private int failedFilesCount;
+    private long totalBytesScanned;
+    private boolean incremental;
+    private String activeDirectory;
     private long potentialSavingsBytes;
     private String duration;
     private String errorMessage;
@@ -27,10 +32,15 @@ public class ScanJobResponse {
             this.id = job.getId();
             this.target = job.getTarget();
             this.storageType = job.getStorageType();
+            this.storageConnectionId = job.getStorageConnectionId();
             this.status = job.getStatus();
             this.progressPercent = job.getProgressPercent();
             this.totalFilesScanned = job.getTotalFilesScanned();
             this.flaggedFilesCount = job.getFlaggedFilesCount();
+            this.failedFilesCount = job.getFailedFilesCount();
+            this.totalBytesScanned = job.getTotalBytesScanned();
+            this.incremental = job.isIncremental();
+            this.activeDirectory = job.getActiveDirectory();
             this.potentialSavingsBytes = job.getPotentialSavingsBytes();
             this.duration = job.getDuration();
             this.errorMessage = job.getErrorMessage();
@@ -62,6 +72,46 @@ public class ScanJobResponse {
 
     public void setStorageType(String storageType) {
         this.storageType = storageType;
+    }
+
+    public String getStorageConnectionId() {
+        return storageConnectionId;
+    }
+
+    public void setStorageConnectionId(String storageConnectionId) {
+        this.storageConnectionId = storageConnectionId;
+    }
+
+    public int getFailedFilesCount() {
+        return failedFilesCount;
+    }
+
+    public void setFailedFilesCount(int failedFilesCount) {
+        this.failedFilesCount = failedFilesCount;
+    }
+
+    public long getTotalBytesScanned() {
+        return totalBytesScanned;
+    }
+
+    public void setTotalBytesScanned(long totalBytesScanned) {
+        this.totalBytesScanned = totalBytesScanned;
+    }
+
+    public boolean isIncremental() {
+        return incremental;
+    }
+
+    public void setIncremental(boolean incremental) {
+        this.incremental = incremental;
+    }
+
+    public String getActiveDirectory() {
+        return activeDirectory;
+    }
+
+    public void setActiveDirectory(String activeDirectory) {
+        this.activeDirectory = activeDirectory;
     }
 
     public String getStatus() {

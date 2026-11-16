@@ -14,7 +14,7 @@ export const storageService = {
         return { success: true, data: res.data.data, isSample: false };
       }
     } catch (e) {
-      // Graceful fallback to mock data if backend not connected
+      // Graceful fallback
     }
     return { success: true, data: mockStorageStats, isSample: true };
   },
@@ -31,45 +31,54 @@ export const storageService = {
     return { success: true, data: mockStorageConnections, isSample: true };
   },
 
-  async getUsageHistory() {
+  async getGoogleAuthUrl(redirectUri) {
     try {
-      const res = await apiClient.get('/dashboard');
-      if (res.data?.success && res.data?.data?.storageUsageHistory) {
-        return { success: true, data: res.data.data.storageUsageHistory, isSample: false };
+      const res = await apiClient.get('/storage/google/auth-url', {
+        params: { redirectUri: redirectUri || window.location.origin + '/oauth/callback' },
+      });
+      if (res.data?.success && res.data?.data?.authorizationUrl) {
+        return res.data.data.authorizationUrl;
       }
-    } catch (e) {}
-    return { success: true, data: mockStorageUsageHistory, isSample: true };
+    } catch (e) {
+      console.warn('Could not fetch backend Google OAuth authorization URL:', e);
+    }
+    return 'https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/drive.metadata.readonly';
   },
 
-  async getCategoryDistribution() {
+  async validateLocalPath(path) {
     try {
-      const res = await apiClient.get('/dashboard');
-      if (res.data?.success && res.data?.data?.categoryDistribution) {
-        return { success: true, data: res.data.data.categoryDistribution, isSample: false };
+      const res = await apiClient.post('/storage/local/validate-path', { path });
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
       }
-    } catch (e) {}
-    return { success: true, data: mockCategoryDistribution, isSample: true };
+    } catch (e) {
+      return { valid: false, reason: e.response?.data?.message || 'Could not validate path with backend' };
+    }
+    return { valid: true, canonicalPath: path, maskedPath: path };
   },
 
   async connectStorage(type, payload) {
     try {
       if (type === 'google_drive') {
         const res = await apiClient.post('/storage/google/connect', {
-          authCode: payload.authCode || 'sample-auth-code',
-          redirectUri: window.location.origin,
+          authCode: payload.authCode,
+          redirectUri: payload.redirectUri || window.location.origin + '/oauth/callback',
         });
         return res.data;
       } else {
+        const paths = Array.isArray(payload.paths)
+          ? payload.paths
+          : (payload.folderPath ? [payload.folderPath] : []);
         const res = await apiClient.post('/storage/local/register', {
-          name: 'Local Computer',
-          paths: payload.folderPath ? [payload.folderPath] : [],
+          name: payload.name || 'Local Computer',
+          paths,
         });
         return res.data;
       }
     } catch (error) {
       return {
-        success: true,
-        message: `${type === 'google_drive' ? 'Google Drive' : 'Local Computer'} configuration saved.`,
+        success: false,
+        message: error.response?.data?.message || `Failed to connect ${type}`,
       };
     }
   },

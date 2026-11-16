@@ -25,6 +25,8 @@ public class ScanJob {
 
     private String storageType = "local";
 
+    private String storageConnectionId;
+
     private String status = "queued"; // "queued" | "in_progress" | "completed" | "cancelled" | "failed"
 
     private int progressPercent = 0;
@@ -32,6 +34,14 @@ public class ScanJob {
     private int totalFilesScanned = 0;
 
     private int flaggedFilesCount = 0;
+
+    private int failedFilesCount = 0;
+
+    private long totalBytesScanned = 0L;
+
+    private boolean incremental = false;
+
+    private String activeDirectory;
 
     private long potentialSavingsBytes = 0L;
 
@@ -89,6 +99,46 @@ public class ScanJob {
 
     public void setStorageType(String storageType) {
         this.storageType = storageType;
+    }
+
+    public String getStorageConnectionId() {
+        return storageConnectionId;
+    }
+
+    public void setStorageConnectionId(String storageConnectionId) {
+        this.storageConnectionId = storageConnectionId;
+    }
+
+    public int getFailedFilesCount() {
+        return failedFilesCount;
+    }
+
+    public void setFailedFilesCount(int failedFilesCount) {
+        this.failedFilesCount = failedFilesCount;
+    }
+
+    public long getTotalBytesScanned() {
+        return totalBytesScanned;
+    }
+
+    public void setTotalBytesScanned(long totalBytesScanned) {
+        this.totalBytesScanned = totalBytesScanned;
+    }
+
+    public boolean isIncremental() {
+        return incremental;
+    }
+
+    public void setIncremental(boolean incremental) {
+        this.incremental = incremental;
+    }
+
+    public String getActiveDirectory() {
+        return activeDirectory;
+    }
+
+    public void setActiveDirectory(String activeDirectory) {
+        this.activeDirectory = activeDirectory;
     }
 
     public String getStatus() {

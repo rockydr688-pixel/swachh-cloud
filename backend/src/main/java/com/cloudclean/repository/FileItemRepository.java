@@ -36,5 +36,9 @@ public interface FileItemRepository extends MongoRepository<FileItem, String> {
     List<FileItem> findByUserIdAndLastAccessedBeforeAndIsDeletedFalse(String userId, Instant cutoffDate);
 
     List<FileItem> findByUserIdAndSizeBytesGreaterThanEqualAndIsDeletedFalse(String userId, long minSize);
+
+    List<FileItem> findByUserIdAndStorageConnectionIdAndIsDeletedFalse(String userId, String connectionId);
+
+    Optional<FileItem> findByUserIdAndProviderFileIdAndIsDeletedFalse(String userId, String providerFileId);
 }
 

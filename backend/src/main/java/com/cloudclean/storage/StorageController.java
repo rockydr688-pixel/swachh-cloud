@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping({"/api/storage", "/api/v1/storage"})
@@ -27,11 +28,20 @@ public class StorageController {
     }
 
     @GetMapping
-    @Operation(summary = "List all storage connections", description = "Returns status of local computer daemon and Google Drive adapters for current user")
+    @Operation(summary = "List all storage connections", description = "Returns live status and quota of local computer daemon and Google Drive adapters for current user")
     public ResponseEntity<ApiResponse<List<StorageConnectionResponse>>> getStorageConnections() {
         String userId = SecurityUtils.getCurrentUserId();
         List<StorageConnectionResponse> connections = storageConnectionService.getUserConnections(userId);
         return ResponseEntity.ok(ApiResponse.success(connections));
+    }
+
+    @GetMapping("/google/auth-url")
+    @Operation(summary = "Get Google Drive OAuth authorization URL", description = "Generates Google OAuth 2.0 authorization URL with minimum drive scopes")
+    public ResponseEntity<ApiResponse<Map<String, String>>> getGoogleAuthUrl(
+            @RequestParam(required = false) String redirectUri) {
+        String userId = SecurityUtils.getCurrentUserId();
+        String url = storageConnectionService.getGoogleAuthUrl(userId, redirectUri);
+        return ResponseEntity.ok(ApiResponse.success(Map.of("authorizationUrl", url)));
     }
 
     @PostMapping("/local/register")
@@ -42,8 +52,17 @@ public class StorageController {
         return ResponseEntity.ok(ApiResponse.success("Local storage folders registered", response));
     }
 
+    @PostMapping("/local/validate-path")
+    @Operation(summary = "Validate local folder path", description = "Verifies path existence, directory check, and readability on the host")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> validateLocalPath(@RequestBody Map<String, String> request) {
+        String userId = SecurityUtils.getCurrentUserId();
+        String path = request.get("path");
+        Map<String, Object> result = storageConnectionService.validateLocalPath(userId, path);
+        return ResponseEntity.ok(ApiResponse.success(result));
+    }
+
     @PostMapping("/google/connect")
-    @Operation(summary = "Connect Google Drive", description = "Encrypts OAuth authorization code and creates Google Drive connection")
+    @Operation(summary = "Connect Google Drive", description = "Exchanges or encrypts OAuth authorization code and creates Google Drive connection")
     public ResponseEntity<ApiResponse<StorageConnectionResponse>> connectGoogleDrive(@Valid @RequestBody GoogleConnectRequest request) {
         String userId = SecurityUtils.getCurrentUserId();
         StorageConnectionResponse response = storageConnectionService.connectGoogleDrive(userId, request);
@@ -58,4 +77,3 @@ public class StorageController {
         return ResponseEntity.ok(ApiResponse.success("Storage connection disconnected successfully", null));
     }
 }
-

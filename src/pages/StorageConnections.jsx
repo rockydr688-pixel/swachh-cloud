@@ -45,10 +45,10 @@ export const StorageConnections = () => {
         </div>
         <div className="space-y-1 text-xs">
           <h4 className="font-bold text-white text-sm">
-            Architecture & Connection Security Standard
+            Common Storage Provider & Security Abstraction
           </h4>
           <p className="text-slate-400 leading-relaxed">
-            Local drives are indexed with zero byte exfiltration via the native client agent daemon. Cloud connectors require backend OAuth 2.0 PKCE authentication flow. In this frontend stage, Google Drive strictly reflects the non-authenticated pending state.
+            Local drives are indexed with zero byte exfiltration via the native client agent daemon. Google Drive connects via standard OAuth 2.0 with AES-256 encrypted refresh tokens and minimum metadata scopes (<code className="font-mono text-indigo-300">drive.metadata.readonly</code>).
           </p>
         </div>
       </div>

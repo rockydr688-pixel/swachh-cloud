@@ -8,15 +8,20 @@ import java.util.Map;
 public class FileItemResponse {
 
     private String id;
+    private String providerFileId;
     private String name;
     private String extension;
+    private String mimeType;
     private String fileType;
     private String category;
     private long sizeBytes;
     private String storageLocation;
     private String storageType;
+    private Instant createdTime;
     private Instant lastModified;
     private Instant lastAccessed;
+    private boolean lastAccessedReliable;
+    private String scanStatus;
     private String detectionReason;
     private String recommendationStatus;
     private String hash;
@@ -30,15 +35,20 @@ public class FileItemResponse {
     public FileItemResponse(FileItem item) {
         if (item != null) {
             this.id = item.getId();
+            this.providerFileId = item.getProviderFileId();
             this.name = item.getName();
             this.extension = item.getExtension();
+            this.mimeType = item.getMimeType();
             this.fileType = item.getFileType();
             this.category = item.getCategory();
             this.sizeBytes = item.getSizeBytes();
             this.storageLocation = sanitizePath(item.getStorageLocation());
             this.storageType = item.getStorageType();
+            this.createdTime = item.getCreatedTime();
             this.lastModified = item.getLastModified();
             this.lastAccessed = item.getLastAccessed();
+            this.lastAccessedReliable = item.isLastAccessedReliable();
+            this.scanStatus = item.getScanStatus();
             this.detectionReason = item.getDetectionReason();
             this.recommendationStatus = item.getRecommendationStatus();
             this.hash = item.getHash();
@@ -62,6 +72,46 @@ public class FileItemResponse {
 
     public void setId(String id) {
         this.id = id;
+    }
+
+    public String getProviderFileId() {
+        return providerFileId;
+    }
+
+    public void setProviderFileId(String providerFileId) {
+        this.providerFileId = providerFileId;
+    }
+
+    public String getMimeType() {
+        return mimeType;
+    }
+
+    public void setMimeType(String mimeType) {
+        this.mimeType = mimeType;
+    }
+
+    public Instant getCreatedTime() {
+        return createdTime;
+    }
+
+    public void setCreatedTime(Instant createdTime) {
+        this.createdTime = createdTime;
+    }
+
+    public boolean isLastAccessedReliable() {
+        return lastAccessedReliable;
+    }
+
+    public void setLastAccessedReliable(boolean lastAccessedReliable) {
+        this.lastAccessedReliable = lastAccessedReliable;
+    }
+
+    public String getScanStatus() {
+        return scanStatus;
+    }
+
+    public void setScanStatus(String scanStatus) {
+        this.scanStatus = scanStatus;
     }
 
     public String getName() {

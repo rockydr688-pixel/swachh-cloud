@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { storageService } from '../services/storageService';
 import { fileService } from '../services/fileService';
 import { scanService } from '../services/scanService';
@@ -14,6 +14,10 @@ export const StorageProvider = ({ children }) => {
   const [error, setError] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState(0);
+  const [activeScan, setActiveScan] = useState(null);
+  const [scanError, setScanError] = useState(null);
+
+  const pollIntervalRef = useRef(null);
 
   const fetchData = async () => {
     setLoading(true);
@@ -38,38 +42,134 @@ export const StorageProvider = ({ children }) => {
 
   useEffect(() => {
     fetchData();
+    return () => {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+    };
   }, []);
 
-  // Simulated live scanner
-  const runScan = (targetName = 'Local Computer') => {
+  const runScan = async (optionsOrTarget = 'Local Computer') => {
     if (isScanning) return;
-    setIsScanning(true);
-    setScanProgress(0);
 
-    const interval = setInterval(() => {
-      setScanProgress((prev) => {
-        if (prev >= 100) {
-          clearInterval(interval);
-          setIsScanning(false);
-          // Add a new scan record
-          const newScan = {
-            id: `scan-${Date.now().toString().slice(-4)}`,
-            target: targetName,
-            storageType: targetName.toLowerCase().includes('google') ? 'google_drive' : 'local',
-            startTime: new Date(Date.now() - 45000).toISOString(),
-            completedTime: new Date().toISOString(),
-            duration: '45s',
-            filesScanned: 18450,
-            status: 'completed',
-            potentialSavingsBytes: 42000000000,
-            flaggedFilesCount: 412,
-          };
-          setRecentScans((curr) => [newScan, ...curr]);
-          return 100;
-        }
-        return prev + 10;
+    setScanError(null);
+    const options = typeof optionsOrTarget === 'string'
+      ? { target: optionsOrTarget }
+      : optionsOrTarget;
+
+    const targetName = options.target || 'Local Computer';
+    const isGoogle = targetName.toLowerCase().includes('google');
+    const storageType = options.storageType || (isGoogle ? 'google_drive' : 'local');
+
+    // Find connection id if available
+    const matchedConn = connections.find((c) =>
+      c.type === storageType || c.name.toLowerCase() === targetName.toLowerCase()
+    );
+
+    setIsScanning(true);
+    setScanProgress(5);
+    setActiveScan({
+      target: targetName,
+      storageType,
+      progressPercent: 5,
+      totalFilesScanned: 0,
+      failedFilesCount: 0,
+      totalBytesScanned: 0,
+      activeDirectory: 'Initializing scanner agent...',
+      status: 'in_progress',
+    });
+
+    try {
+      const startResult = await scanService.startScan({
+        target: targetName,
+        storageType,
+        storageConnectionId: matchedConn?.id,
+        incremental: options.incremental ?? false,
+        checkDuplicates: options.checkDuplicates ?? true,
+        checkBlurry: options.checkBlurry ?? true,
+        checkLargeFiles: options.checkLargeFiles ?? true,
+        checkInactive: options.checkInactive ?? true,
+        largeFileSizeThresholdMB: options.largeFileSizeThresholdMB,
+        blurThreshold: options.blurThreshold,
       });
-    }, 400);
+
+      const scanId = startResult.scanId;
+
+      // Poll real progress from backend
+      pollIntervalRef.current = setInterval(async () => {
+        try {
+          const liveStatus = await scanService.getScanProgress(scanId);
+          if (liveStatus) {
+            setScanProgress(liveStatus.progressPercent || 0);
+            setActiveScan({
+              id: scanId,
+              target: liveStatus.target || targetName,
+              storageType: liveStatus.storageType || storageType,
+              progressPercent: liveStatus.progressPercent || 0,
+              totalFilesScanned: liveStatus.totalFilesScanned || 0,
+              failedFilesCount: liveStatus.failedFilesCount || 0,
+              totalBytesScanned: liveStatus.totalBytesScanned || 0,
+              activeDirectory: liveStatus.activeDirectory || 'Scanning file trees...',
+              potentialSavingsBytes: liveStatus.potentialSavingsBytes || 0,
+              flaggedFilesCount: liveStatus.flaggedFilesCount || 0,
+              duration: liveStatus.duration,
+              status: liveStatus.status,
+            });
+
+            if (liveStatus.status === 'completed' || liveStatus.status === 'cancelled' || liveStatus.status === 'failed') {
+              clearInterval(pollIntervalRef.current);
+              setIsScanning(false);
+              // Refresh recent scans and dashboard metrics
+              const scansRes = await scanService.getRecentScans();
+              setRecentScans(scansRes.data);
+              storageService.getStorageStats().then((res) => setStats(res.data));
+              storageService.getConnections().then((res) => setConnections(res.data));
+            }
+          }
+        } catch (pollErr) {
+          console.warn('Poll error for scan:', pollErr);
+        }
+      }, 700);
+
+    } catch (err) {
+      setIsScanning(false);
+      setScanProgress(0);
+      setActiveScan(null);
+      setScanError(err.message || 'Could not initiate scan job');
+      throw err;
+    }
+  };
+
+  const cancelActiveScan = async () => {
+    if (!activeScan?.id) {
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      setIsScanning(false);
+      setActiveScan(null);
+      return;
+    }
+
+    try {
+      await scanService.cancelScan(activeScan.id);
+      if (pollIntervalRef.current) clearInterval(pollIntervalRef.current);
+      setIsScanning(false);
+      setActiveScan((prev) => prev ? { ...prev, status: 'cancelled' } : null);
+      const scansRes = await scanService.getRecentScans();
+      setRecentScans(scansRes.data);
+    } catch (err) {
+      console.error('Failed to cancel scan:', err);
+    }
+  };
+
+  const connectStorage = async (type, payload) => {
+    const res = await storageService.connectStorage(type, payload);
+    const connRes = await storageService.getConnections();
+    setConnections(connRes.data);
+    return res;
+  };
+
+  const disconnectStorage = async (id) => {
+    const res = await storageService.disconnectStorage(id);
+    const connRes = await storageService.getConnections();
+    setConnections(connRes.data);
+    return res;
   };
 
   const executeRecommendation = async (recId) => {
@@ -88,8 +188,13 @@ export const StorageProvider = ({ children }) => {
         error,
         isScanning,
         scanProgress,
+        activeScan,
+        scanError,
         refreshData: fetchData,
         runScan,
+        cancelActiveScan,
+        connectStorage,
+        disconnectStorage,
         executeRecommendation,
       }}
     >
@@ -107,4 +212,3 @@ export const useStorage = () => {
 };
 
 export default StorageContext;
-

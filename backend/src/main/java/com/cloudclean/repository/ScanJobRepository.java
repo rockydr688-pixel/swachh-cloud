@@ -15,5 +15,7 @@ public interface ScanJobRepository extends MongoRepository<ScanJob, String> {
     Page<ScanJob> findByUserIdOrderByCreatedAtDesc(String userId, Pageable pageable);
     Optional<ScanJob> findByIdAndUserId(String id, String userId);
     List<ScanJob> findByUserIdAndStatus(String userId, String status);
+    List<ScanJob> findByUserIdAndTargetAndStatusIn(String userId, String target, List<String> statuses);
+    Optional<ScanJob> findFirstByUserIdAndTargetAndStatusOrderByCompletedTimeDesc(String userId, String target, String status);
 }
 

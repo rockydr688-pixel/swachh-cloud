@@ -27,10 +27,15 @@ public class FileItem {
     @Indexed
     private String storageConnectionId;
 
+    @Indexed
+    private String providerFileId;
+
     @NotBlank
     private String name;
 
     private String extension;
+
+    private String mimeType;
 
     private String fileType; // "image" | "video" | "archive" | "document" | "application" | "data" | "other"
 
@@ -43,9 +48,17 @@ public class FileItem {
 
     private String storageType; // "local" | "google_drive"
 
+    private Instant createdTime;
+
     private Instant lastModified;
 
     private Instant lastAccessed;
+
+    private boolean lastAccessedReliable = false;
+
+    private String scanStatus = "scanned"; // "scanned" | "flagged" | "failed" | "pending"
+
+    private String errorMessage;
 
     private String detectionReason;
 
@@ -96,6 +109,54 @@ public class FileItem {
 
     public void setStorageConnectionId(String storageConnectionId) {
         this.storageConnectionId = storageConnectionId;
+    }
+
+    public String getProviderFileId() {
+        return providerFileId;
+    }
+
+    public void setProviderFileId(String providerFileId) {
+        this.providerFileId = providerFileId;
+    }
+
+    public String getMimeType() {
+        return mimeType;
+    }
+
+    public void setMimeType(String mimeType) {
+        this.mimeType = mimeType;
+    }
+
+    public Instant getCreatedTime() {
+        return createdTime;
+    }
+
+    public void setCreatedTime(Instant createdTime) {
+        this.createdTime = createdTime;
+    }
+
+    public boolean isLastAccessedReliable() {
+        return lastAccessedReliable;
+    }
+
+    public void setLastAccessedReliable(boolean lastAccessedReliable) {
+        this.lastAccessedReliable = lastAccessedReliable;
+    }
+
+    public String getScanStatus() {
+        return scanStatus;
+    }
+
+    public void setScanStatus(String scanStatus) {
+        this.scanStatus = scanStatus;
+    }
+
+    public String getErrorMessage() {
+        return errorMessage;
+    }
+
+    public void setErrorMessage(String errorMessage) {
+        this.errorMessage = errorMessage;
     }
 
     public String getName() {

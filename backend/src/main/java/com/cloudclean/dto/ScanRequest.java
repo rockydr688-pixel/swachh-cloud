@@ -4,6 +4,9 @@ public class ScanRequest {
 
     private String target = "Local Computer";
     private String storageType = "local";
+    private String storageConnectionId;
+    private boolean incremental = false;
+    private java.util.List<String> targetPaths;
     private boolean checkDuplicates = true;
     private boolean checkBlurry = true;
     private boolean checkLargeFiles = true;
@@ -28,6 +31,30 @@ public class ScanRequest {
 
     public void setStorageType(String storageType) {
         this.storageType = storageType;
+    }
+
+    public String getStorageConnectionId() {
+        return storageConnectionId;
+    }
+
+    public void setStorageConnectionId(String storageConnectionId) {
+        this.storageConnectionId = storageConnectionId;
+    }
+
+    public boolean isIncremental() {
+        return incremental;
+    }
+
+    public void setIncremental(boolean incremental) {
+        this.incremental = incremental;
+    }
+
+    public java.util.List<String> getTargetPaths() {
+        return targetPaths;
+    }
+
+    public void setTargetPaths(java.util.List<String> targetPaths) {
+        this.targetPaths = targetPaths;
     }
 
     public boolean isCheckDuplicates() {
