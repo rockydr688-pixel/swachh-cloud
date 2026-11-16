@@ -246,3 +246,4 @@ public class LocalStorageAdapter implements StorageProvider {
         throw new ForbiddenException("File path does not belong to any monitored folder: " + target);
     }
 }
+

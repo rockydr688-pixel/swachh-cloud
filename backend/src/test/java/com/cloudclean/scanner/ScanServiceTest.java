@@ -127,3 +127,4 @@ class ScanServiceTest {
         verify(scanJobRepository, times(1)).save(activeJob);
     }
 }
+

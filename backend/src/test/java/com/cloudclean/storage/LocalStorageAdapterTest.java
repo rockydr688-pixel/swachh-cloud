@@ -146,3 +146,4 @@ class LocalStorageAdapterTest {
         assertEquals("col1,col2\nval1,val2\n", new String(preview));
     }
 }
+

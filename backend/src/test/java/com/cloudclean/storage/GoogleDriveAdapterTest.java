@@ -74,3 +74,4 @@ class GoogleDriveAdapterTest {
         verify(googleOAuthService, never()).refreshAccessToken(any());
     }
 }
+

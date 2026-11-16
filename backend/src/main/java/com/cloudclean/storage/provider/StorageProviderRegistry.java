@@ -33,3 +33,4 @@ public class StorageProviderRegistry {
         return type != null && providerMap.containsKey(type.toLowerCase());
     }
 }
+

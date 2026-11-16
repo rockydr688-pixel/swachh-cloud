@@ -98,3 +98,4 @@ class LocalAgentScannerTest {
         assertTrue(results.isEmpty());
     }
 }
+

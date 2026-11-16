@@ -54,3 +54,4 @@ public class StorageUsage {
         this.trashBytes = trashBytes;
     }
 }
+
