@@ -19,6 +19,7 @@ public class DashboardMetricsResponse {
     private long largeFilesBytes;
     private long inactiveFilesCount;
     private long inactiveFilesBytes;
+    private long storageActuallyRecoveredBytes;
     private int healthScore;
     private Instant lastScanTimestamp;
 
@@ -26,6 +27,7 @@ public class DashboardMetricsResponse {
     private List<Map<String, Object>> categoryDistribution = new ArrayList<>();
     private List<RecommendationResponse> recentRecommendations = new ArrayList<>();
     private List<ScanJobResponse> recentScans = new ArrayList<>();
+    private List<CleanupHistoryResponse> recentCleanupActivity = new ArrayList<>();
 
     public DashboardMetricsResponse() {}
 
@@ -123,6 +125,22 @@ public class DashboardMetricsResponse {
 
     public void setInactiveFilesBytes(long inactiveFilesBytes) {
         this.inactiveFilesBytes = inactiveFilesBytes;
+    }
+
+    public long getStorageActuallyRecoveredBytes() {
+        return storageActuallyRecoveredBytes;
+    }
+
+    public void setStorageActuallyRecoveredBytes(long storageActuallyRecoveredBytes) {
+        this.storageActuallyRecoveredBytes = storageActuallyRecoveredBytes;
+    }
+
+    public List<CleanupHistoryResponse> getRecentCleanupActivity() {
+        return recentCleanupActivity;
+    }
+
+    public void setRecentCleanupActivity(List<CleanupHistoryResponse> recentCleanupActivity) {
+        this.recentCleanupActivity = recentCleanupActivity;
     }
 
     public int getHealthScore() {

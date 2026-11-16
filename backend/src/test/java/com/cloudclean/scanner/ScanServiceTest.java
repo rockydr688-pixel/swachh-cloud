@@ -35,6 +35,7 @@ class ScanServiceTest {
     private InactiveFileDetector inactiveFileDetector;
     private TemporaryFileDetector temporaryFileDetector;
     private JunkScoringEngine junkScoringEngine;
+    private com.cloudclean.notification.NotificationService notificationService;
     private ScanService scanService;
 
     @BeforeEach
@@ -51,6 +52,7 @@ class ScanServiceTest {
         inactiveFileDetector = Mockito.mock(InactiveFileDetector.class);
         temporaryFileDetector = Mockito.mock(TemporaryFileDetector.class);
         junkScoringEngine = Mockito.mock(JunkScoringEngine.class);
+        notificationService = Mockito.mock(com.cloudclean.notification.NotificationService.class);
 
         scanService = new ScanService(
                 scanJobRepository,
@@ -64,7 +66,8 @@ class ScanServiceTest {
                 largeFileDetector,
                 inactiveFileDetector,
                 temporaryFileDetector,
-                junkScoringEngine
+                junkScoringEngine,
+                notificationService
         );
     }
 

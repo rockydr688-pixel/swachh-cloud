@@ -21,6 +21,18 @@ public class RecommendationResponse {
     private String storageLocation;
     private String status;
     private List<String> targetFileIds;
+    private String fileId;
+    private String fileName;
+    private String fileType;
+    private long fileSize;
+    private String storageSource;
+    private int junkScore;
+    private List<String> detectionReasons;
+    private String recommendedAction;
+    private String riskLevel;
+    private Instant analysisDate;
+    private boolean isProtected;
+    private boolean isExcluded;
     private Instant createdAt;
 
     public RecommendationResponse() {}
@@ -41,6 +53,18 @@ public class RecommendationResponse {
             this.storageLocation = rec.getStorageLocation();
             this.status = rec.getStatus();
             this.targetFileIds = rec.getTargetFileIds();
+            this.fileId = rec.getFileId();
+            this.fileName = rec.getFileName();
+            this.fileType = rec.getFileType();
+            this.fileSize = rec.getFileSize();
+            this.storageSource = rec.getStorageSource();
+            this.junkScore = rec.getJunkScore();
+            this.detectionReasons = rec.getDetectionReasons();
+            this.recommendedAction = rec.getRecommendedAction();
+            this.riskLevel = rec.getRiskLevel();
+            this.analysisDate = rec.getAnalysisDate();
+            this.isProtected = rec.isProtected();
+            this.isExcluded = rec.isExcluded();
             this.createdAt = rec.getCreatedAt();
         }
     }
@@ -155,6 +179,102 @@ public class RecommendationResponse {
 
     public void setTargetFileIds(List<String> targetFileIds) {
         this.targetFileIds = targetFileIds;
+    }
+
+    public String getFileId() {
+        return fileId;
+    }
+
+    public void setFileId(String fileId) {
+        this.fileId = fileId;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public String getFileType() {
+        return fileType;
+    }
+
+    public void setFileType(String fileType) {
+        this.fileType = fileType;
+    }
+
+    public long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(long fileSize) {
+        this.fileSize = fileSize;
+    }
+
+    public String getStorageSource() {
+        return storageSource;
+    }
+
+    public void setStorageSource(String storageSource) {
+        this.storageSource = storageSource;
+    }
+
+    public int getJunkScore() {
+        return junkScore;
+    }
+
+    public void setJunkScore(int junkScore) {
+        this.junkScore = junkScore;
+    }
+
+    public List<String> getDetectionReasons() {
+        return detectionReasons;
+    }
+
+    public void setDetectionReasons(List<String> detectionReasons) {
+        this.detectionReasons = detectionReasons;
+    }
+
+    public String getRecommendedAction() {
+        return recommendedAction;
+    }
+
+    public void setRecommendedAction(String recommendedAction) {
+        this.recommendedAction = recommendedAction;
+    }
+
+    public String getRiskLevel() {
+        return riskLevel;
+    }
+
+    public void setRiskLevel(String riskLevel) {
+        this.riskLevel = riskLevel;
+    }
+
+    public Instant getAnalysisDate() {
+        return analysisDate;
+    }
+
+    public void setAnalysisDate(Instant analysisDate) {
+        this.analysisDate = analysisDate;
+    }
+
+    public boolean isProtected() {
+        return isProtected;
+    }
+
+    public void setProtected(boolean aProtected) {
+        isProtected = aProtected;
+    }
+
+    public boolean isExcluded() {
+        return isExcluded;
+    }
+
+    public void setExcluded(boolean excluded) {
+        isExcluded = excluded;
     }
 
     public Instant getCreatedAt() {

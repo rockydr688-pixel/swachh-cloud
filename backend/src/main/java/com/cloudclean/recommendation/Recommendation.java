@@ -46,9 +46,33 @@ public class Recommendation {
 
     private String storageLocation;
 
-    private String status = "pending"; // "pending" | "applied" | "dismissed"
+    private String status = "pending"; // "pending" | "applied" | "dismissed" | "accepted" | "rejected"
 
     private List<String> targetFileIds = new ArrayList<>();
+
+    private String fileId;
+
+    private String fileName;
+
+    private String fileType;
+
+    private long fileSize = 0L;
+
+    private String storageSource = "local";
+
+    private int junkScore = 0;
+
+    private List<String> detectionReasons = new ArrayList<>();
+
+    private String recommendedAction = "Review & Delete";
+
+    private String riskLevel = "medium"; // "low" | "medium" | "high"
+
+    private Instant analysisDate = Instant.now();
+
+    private boolean isProtected = false;
+
+    private boolean isExcluded = false;
 
     @CreatedDate
     private Instant createdAt;
@@ -176,6 +200,102 @@ public class Recommendation {
 
     public void setTargetFileIds(List<String> targetFileIds) {
         this.targetFileIds = targetFileIds;
+    }
+
+    public String getFileId() {
+        return fileId;
+    }
+
+    public void setFileId(String fileId) {
+        this.fileId = fileId;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public String getFileType() {
+        return fileType;
+    }
+
+    public void setFileType(String fileType) {
+        this.fileType = fileType;
+    }
+
+    public long getFileSize() {
+        return fileSize;
+    }
+
+    public void setFileSize(long fileSize) {
+        this.fileSize = fileSize;
+    }
+
+    public String getStorageSource() {
+        return storageSource;
+    }
+
+    public void setStorageSource(String storageSource) {
+        this.storageSource = storageSource;
+    }
+
+    public int getJunkScore() {
+        return junkScore;
+    }
+
+    public void setJunkScore(int junkScore) {
+        this.junkScore = junkScore;
+    }
+
+    public List<String> getDetectionReasons() {
+        return detectionReasons;
+    }
+
+    public void setDetectionReasons(List<String> detectionReasons) {
+        this.detectionReasons = detectionReasons;
+    }
+
+    public String getRecommendedAction() {
+        return recommendedAction;
+    }
+
+    public void setRecommendedAction(String recommendedAction) {
+        this.recommendedAction = recommendedAction;
+    }
+
+    public String getRiskLevel() {
+        return riskLevel;
+    }
+
+    public void setRiskLevel(String riskLevel) {
+        this.riskLevel = riskLevel;
+    }
+
+    public Instant getAnalysisDate() {
+        return analysisDate;
+    }
+
+    public void setAnalysisDate(Instant analysisDate) {
+        this.analysisDate = analysisDate;
+    }
+
+    public boolean isProtected() {
+        return isProtected;
+    }
+
+    public void setProtected(boolean aProtected) {
+        isProtected = aProtected;
+    }
+
+    public boolean isExcluded() {
+        return isExcluded;
+    }
+
+    public void setExcluded(boolean excluded) {
+        isExcluded = excluded;
     }
 
     public Instant getCreatedAt() {

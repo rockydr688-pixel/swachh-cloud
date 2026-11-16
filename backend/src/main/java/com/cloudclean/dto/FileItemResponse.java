@@ -31,6 +31,8 @@ public class FileItemResponse {
     private Double qualityScore;
     private String inactivityCategory;
     private boolean isTemporary;
+    private boolean isProtected;
+    private boolean isExcluded;
     private Map<String, Object> evidence;
     private String previewUrl;
     private Map<String, Object> metadata;
@@ -64,6 +66,8 @@ public class FileItemResponse {
             this.qualityScore = item.getQualityScore();
             this.inactivityCategory = item.getInactivityCategory();
             this.isTemporary = item.isTemporary();
+            this.isProtected = item.isProtected();
+            this.isExcluded = item.isExcluded();
             this.evidence = item.getEvidence();
             this.previewUrl = item.getPreviewUrl();
             this.metadata = item.getMetadata();
@@ -292,6 +296,22 @@ public class FileItemResponse {
 
     public void setMetadata(Map<String, Object> metadata) {
         this.metadata = metadata;
+    }
+
+    public boolean isProtected() {
+        return isProtected;
+    }
+
+    public void setProtected(boolean aProtected) {
+        isProtected = aProtected;
+    }
+
+    public boolean isExcluded() {
+        return isExcluded;
+    }
+
+    public void setExcluded(boolean excluded) {
+        isExcluded = excluded;
     }
 
     public Instant getCreatedAt() {

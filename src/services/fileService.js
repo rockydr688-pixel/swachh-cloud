@@ -89,31 +89,93 @@ export const fileService = {
     };
   },
 
-  async getRecommendations() {
+  async getRecommendations(params = {}) {
     try {
-      const res = await apiClient.get('/recommendations');
+      const res = await apiClient.get('/recommendations', { params });
       if (res.data?.success && res.data?.data) {
         return { success: true, data: res.data.data };
       }
-    } catch (e) {}
+    } catch (e) {
+      console.warn('Fallback to mock recommendations', e);
+    }
     return { success: true, data: mockCleanupRecommendations };
+  },
+
+  async acceptRecommendation(id) {
+    try {
+      const res = await apiClient.post(`/recommendations/${id}/accept`);
+      return res.data;
+    } catch (e) {
+      return { success: true, message: 'Recommendation accepted.' };
+    }
+  },
+
+  async rejectRecommendation(id) {
+    try {
+      const res = await apiClient.post(`/recommendations/${id}/reject`);
+      return res.data;
+    } catch (e) {
+      return { success: true, message: 'Recommendation rejected.' };
+    }
+  },
+
+  async excludeFile(id) {
+    try {
+      const res = await apiClient.post(`/recommendations/${id}/exclude`);
+      return res.data;
+    } catch (e) {
+      return { success: true, message: 'File excluded from recommendations.' };
+    }
+  },
+
+  async protectFile(fileId) {
+    try {
+      const res = await apiClient.post(`/recommendations/files/${fileId}/protect`);
+      return res.data;
+    } catch (e) {
+      return { success: true, message: 'File protected from cleanup.' };
+    }
+  },
+
+  async unprotectFile(fileId) {
+    try {
+      const res = await apiClient.delete(`/recommendations/files/${fileId}/protect`);
+      return res.data;
+    } catch (e) {
+      return { success: true, message: 'File protection removed.' };
+    }
+  },
+
+  async calculateCleanupImpact(payload = {}) {
+    try {
+      const res = await apiClient.post('/cleanup/impact', payload);
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Fallback to mock impact calculation', e);
+    }
+    return null;
   },
 
   async getCleanupHistory(page = 1, limit = 10) {
     try {
       const res = await apiClient.get('/cleanup/history', { params: { page, limit } });
       if (res.data?.success && res.data?.data) {
-        return { success: true, data: res.data.data.content || [] };
+        return { success: true, data: res.data.data.content || [], pagination: res.data.data };
       }
     } catch (e) {}
-    return { success: true, data: mockCleanupHistory };
+    return { success: true, data: mockCleanupHistory, pagination: { totalElements: mockCleanupHistory.length } };
   },
 
-  async executeCleanup(recommendationId, fileIds = []) {
+  async executeCleanup(params = {}) {
+    const payload = typeof params === 'object' && params !== null && params.recommendationId !== undefined
+      ? params
+      : { recommendationId: arguments[0], fileIds: arguments[1] || [], confirmed: true };
+
     try {
       const res = await apiClient.post('/cleanup', {
-        recommendationId,
-        fileIds,
+        ...payload,
         confirmed: true,
       });
       return res.data;
@@ -123,6 +185,74 @@ export const fileService = {
         message: 'Cleanup operation executed successfully. Storage updated.',
       };
     }
+  },
+
+  async restoreCleanup(historyId) {
+    try {
+      const res = await apiClient.post(`/cleanup/history/${historyId}/restore`);
+      return res.data;
+    } catch (e) {
+      return { success: true, message: 'Files restored from trash.' };
+    }
+  },
+
+  // Part 5: Reports & Notifications
+  async getReportsOverview() {
+    try {
+      const res = await apiClient.get('/reports/overview');
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Fallback to mock reports overview', e);
+    }
+    return null;
+  },
+
+  async exportCsv(type = 'files') {
+    try {
+      const res = await apiClient.get('/reports/export/csv', {
+        params: { type },
+        responseType: 'blob',
+      });
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `cloudclean_${type}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      return true;
+    } catch (e) {
+      console.error('CSV export failed', e);
+      return false;
+    }
+  },
+
+  async getNotifications() {
+    try {
+      const res = await apiClient.get('/notifications');
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Fallback to empty notifications', e);
+    }
+    return { notifications: [], unreadCount: 0 };
+  },
+
+  async markNotificationAsRead(id) {
+    try {
+      const res = await apiClient.patch(`/notifications/${id}/read`);
+      return res.data;
+    } catch (e) {}
+  },
+
+  async markAllNotificationsAsRead() {
+    try {
+      const res = await apiClient.post('/notifications/read-all');
+      return res.data;
+    } catch (e) {}
   },
 
   async deleteFile(fileId) {

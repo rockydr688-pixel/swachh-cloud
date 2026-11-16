@@ -17,6 +17,12 @@ public class CleanupHistoryResponse {
     private String method;
     private Instant timestamp;
     private List<String> cleanedFileIds;
+    private int failedCount;
+    private List<String> failedFileIds;
+    private List<String> errorMessages;
+    private boolean restorationSupported;
+    private boolean isRestored;
+    private Instant restoredAt;
 
     public CleanupHistoryResponse() {}
 
@@ -32,6 +38,12 @@ public class CleanupHistoryResponse {
             this.method = history.getMethod();
             this.timestamp = history.getTimestamp();
             this.cleanedFileIds = history.getCleanedFileIds();
+            this.failedCount = history.getFailedCount();
+            this.failedFileIds = history.getFailedFileIds();
+            this.errorMessages = history.getErrorMessages();
+            this.restorationSupported = history.isRestorationSupported();
+            this.isRestored = history.isRestored();
+            this.restoredAt = history.getRestoredAt();
         }
     }
 
@@ -113,6 +125,54 @@ public class CleanupHistoryResponse {
 
     public void setCleanedFileIds(List<String> cleanedFileIds) {
         this.cleanedFileIds = cleanedFileIds;
+    }
+
+    public int getFailedCount() {
+        return failedCount;
+    }
+
+    public void setFailedCount(int failedCount) {
+        this.failedCount = failedCount;
+    }
+
+    public List<String> getFailedFileIds() {
+        return failedFileIds;
+    }
+
+    public void setFailedFileIds(List<String> failedFileIds) {
+        this.failedFileIds = failedFileIds;
+    }
+
+    public List<String> getErrorMessages() {
+        return errorMessages;
+    }
+
+    public void setErrorMessages(List<String> errorMessages) {
+        this.errorMessages = errorMessages;
+    }
+
+    public boolean isRestorationSupported() {
+        return restorationSupported;
+    }
+
+    public void setRestorationSupported(boolean restorationSupported) {
+        this.restorationSupported = restorationSupported;
+    }
+
+    public boolean isRestored() {
+        return isRestored;
+    }
+
+    public void setRestored(boolean restored) {
+        isRestored = restored;
+    }
+
+    public Instant getRestoredAt() {
+        return restoredAt;
+    }
+
+    public void setRestoredAt(Instant restoredAt) {
+        this.restoredAt = restoredAt;
     }
 }
 

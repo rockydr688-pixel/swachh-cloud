@@ -16,6 +16,8 @@ public interface FileItemRepository extends MongoRepository<FileItem, String> {
 
     Optional<FileItem> findByIdAndUserId(String id, String userId);
 
+    List<FileItem> findByUserId(String userId);
+
     Page<FileItem> findByUserIdAndIsDeletedFalse(String userId, Pageable pageable);
 
     Page<FileItem> findByUserIdAndCategoryAndIsDeletedFalse(String userId, String category, Pageable pageable);

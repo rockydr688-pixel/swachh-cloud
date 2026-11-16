@@ -89,6 +89,10 @@ public class FileItem {
 
     private boolean isDeleted = false;
 
+    private boolean isProtected = false;
+
+    private boolean isExcluded = false;
+
     private Instant deletedAt;
 
     private Map<String, Object> metadata = new HashMap<>();
@@ -355,6 +359,22 @@ public class FileItem {
 
     public void setDeleted(boolean deleted) {
         isDeleted = deleted;
+    }
+
+    public boolean isProtected() {
+        return isProtected;
+    }
+
+    public void setProtected(boolean aProtected) {
+        isProtected = aProtected;
+    }
+
+    public boolean isExcluded() {
+        return isExcluded;
+    }
+
+    public void setExcluded(boolean excluded) {
+        isExcluded = excluded;
     }
 
     public Instant getDeletedAt() {

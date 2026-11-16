@@ -50,6 +50,7 @@ public class ScanService {
     private final InactiveFileDetector inactiveFileDetector;
     private final TemporaryFileDetector temporaryFileDetector;
     private final JunkScoringEngine junkScoringEngine;
+    private final com.cloudclean.notification.NotificationService notificationService;
 
     // In-memory cancellation registry for active scan jobs
     private final Map<String, AtomicBoolean> activeScanCancellations = new ConcurrentHashMap<>();
@@ -65,7 +66,8 @@ public class ScanService {
                        LargeFileDetector largeFileDetector,
                        InactiveFileDetector inactiveFileDetector,
                        TemporaryFileDetector temporaryFileDetector,
-                       JunkScoringEngine junkScoringEngine) {
+                       JunkScoringEngine junkScoringEngine,
+                       com.cloudclean.notification.NotificationService notificationService) {
         this.scanJobRepository = scanJobRepository;
         this.fileItemRepository = fileItemRepository;
         this.connectionRepository = connectionRepository;
@@ -78,6 +80,7 @@ public class ScanService {
         this.inactiveFileDetector = inactiveFileDetector;
         this.temporaryFileDetector = temporaryFileDetector;
         this.junkScoringEngine = junkScoringEngine;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -270,6 +273,14 @@ public class ScanService {
                     connectionRepository.save(connection);
                 }
 
+                notificationService.createNotification(
+                        userId,
+                        "Storage Scan Completed",
+                        String.format("Scan on %s completed in %s. Found %d flagged items.", job.getTargetStorage(), job.getDuration(), job.getFlaggedFilesCount()),
+                        "scan_completed",
+                        "/files"
+                );
+
                 log.info("Intelligent scan job {} completed successfully in {}", jobId, job.getDuration());
             }
         } catch (Exception e) {
@@ -281,6 +292,13 @@ public class ScanService {
                 job.setCompletedTime(Instant.now());
                 scanJobRepository.save(job);
             }
+            notificationService.createNotification(
+                    userId,
+                    "Storage Scan Failed",
+                    "Scan job on target encountered an error: " + e.getMessage(),
+                    "scan_failed",
+                    "/scanner"
+            );
         } finally {
             activeScanCancellations.remove(jobId);
         }

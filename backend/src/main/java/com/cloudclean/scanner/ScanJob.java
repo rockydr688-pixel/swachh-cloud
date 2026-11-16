@@ -89,6 +89,10 @@ public class ScanJob {
         return target;
     }
 
+    public String getTargetStorage() {
+        return target;
+    }
+
     public void setTarget(String target) {
         this.target = target;
     }
@@ -161,6 +165,10 @@ public class ScanJob {
         return totalFilesScanned;
     }
 
+    public int getFilesScanned() {
+        return totalFilesScanned;
+    }
+
     public void setTotalFilesScanned(int totalFilesScanned) {
         this.totalFilesScanned = totalFilesScanned;
     }
@@ -206,6 +214,10 @@ public class ScanJob {
     }
 
     public Instant getCompletedTime() {
+        return completedTime;
+    }
+
+    public Instant getCompletedAt() {
         return completedTime;
     }
 

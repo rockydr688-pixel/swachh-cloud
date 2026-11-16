@@ -10,6 +10,7 @@ import org.springframework.data.mongodb.core.mapping.Document;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @Document(collection = "cleanup_history")
 @CompoundIndex(name = "user_timestamp_idx", def = "{'userId': 1, 'timestamp': -1}")
@@ -40,6 +41,20 @@ public class CleanupHistory {
     private Instant timestamp;
 
     private List<String> cleanedFileIds = new ArrayList<>();
+
+    private int failedCount = 0;
+
+    private List<String> failedFileIds = new ArrayList<>();
+
+    private List<String> errorMessages = new ArrayList<>();
+
+    private boolean restorationSupported = true;
+
+    private boolean isRestored = false;
+
+    private Instant restoredAt;
+
+    private List<Map<String, Object>> cleanedFilesSnapshot = new ArrayList<>();
 
     @CreatedDate
     private Instant createdAt;
@@ -146,6 +161,62 @@ public class CleanupHistory {
 
     public void setCleanedFileIds(List<String> cleanedFileIds) {
         this.cleanedFileIds = cleanedFileIds;
+    }
+
+    public int getFailedCount() {
+        return failedCount;
+    }
+
+    public void setFailedCount(int failedCount) {
+        this.failedCount = failedCount;
+    }
+
+    public List<String> getFailedFileIds() {
+        return failedFileIds;
+    }
+
+    public void setFailedFileIds(List<String> failedFileIds) {
+        this.failedFileIds = failedFileIds;
+    }
+
+    public List<String> getErrorMessages() {
+        return errorMessages;
+    }
+
+    public void setErrorMessages(List<String> errorMessages) {
+        this.errorMessages = errorMessages;
+    }
+
+    public boolean isRestorationSupported() {
+        return restorationSupported;
+    }
+
+    public void setRestorationSupported(boolean restorationSupported) {
+        this.restorationSupported = restorationSupported;
+    }
+
+    public boolean isRestored() {
+        return isRestored;
+    }
+
+    public void setRestored(boolean restored) {
+        isRestored = restored;
+    }
+
+    public Instant getRestoredAt() {
+        return restoredAt;
+    }
+
+    public void setRestoredAt(Instant restoredAt) {
+        this.restoredAt = restoredAt;
+    }
+
+    public List<Map<String, Object>> getCleanedFilesSnapshot() {
+        return cleanedFilesSnapshot;
+    }
+
+    public void setCleanedFilesSnapshot(List<Map<String, Object>> cleanedFilesSnapshot) {
+        this.cleanedFilesSnapshot = cleanedFilesSnapshot;
     }
 
     public Instant getCreatedAt() {
