@@ -102,6 +102,45 @@ export const CleanupRecommendations = () => {
         </div>
       </div>
 
+      {/* AI Scoring Architecture & Safeguards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card className="p-4 border-slate-200 bg-slate-50/70">
+          <div className="flex items-center gap-2 mb-1.5">
+            <ShieldCheck className="w-4 h-4 text-emerald-600" />
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              Additive Scoring Model
+            </span>
+          </div>
+          <p className="text-xs text-slate-600">
+            Junk scores scale 0–100 across 5 independent signals: Duplicate (+30), Temp (+25), Blur (+20), Inactive (+15), Large (+10).
+          </p>
+        </Card>
+
+        <Card className="p-4 border-slate-200 bg-slate-50/70">
+          <div className="flex items-center gap-2 mb-1.5">
+            <AlertTriangle className="w-4 h-4 text-amber-600" />
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              No Blind Auto-Deletion
+            </span>
+          </div>
+          <p className="text-xs text-slate-600">
+            Scores generate recommendations with Low, Medium, and High risk boundaries. Master copies are strictly protected.
+          </p>
+        </Card>
+
+        <Card className="p-4 border-slate-200 bg-slate-50/70">
+          <div className="flex items-center gap-2 mb-1.5">
+            <Sparkles className="w-4 h-4 text-indigo-600" />
+            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
+              Recycle Bin Trash Fallback
+            </span>
+          </div>
+          <p className="text-xs text-slate-600">
+            Operations route files through staging sandboxes or cloud trash to allow instant undo and accidental deletion recovery.
+          </p>
+        </Card>
+      </div>
+
       {/* List of Recommendations */}
       <div className="space-y-4">
         {recommendations.map((rec) => {

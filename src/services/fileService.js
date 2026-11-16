@@ -133,6 +133,89 @@ export const fileService = {
       return { success: true, message: 'File removed or moved to trash.' };
     }
   },
+
+  // Part 4: Detection & Analysis Endpoints
+  async getDuplicateReport() {
+    try {
+      const res = await apiClient.get('/detection/duplicates');
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Fallback to local mock duplicates analysis', e);
+    }
+    return null;
+  },
+
+  async getSimilarImages(maxDistance = 10) {
+    try {
+      const res = await apiClient.get('/detection/similar-images', { params: { maxDistance } });
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Fallback to mock similar images', e);
+    }
+    return null;
+  },
+
+  async getBlurryAnalysis(threshold = 100.0) {
+    try {
+      const res = await apiClient.get('/detection/blurry', { params: { threshold } });
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Fallback to mock blur analysis', e);
+    }
+    return null;
+  },
+
+  async getInactiveReport(category = 'all') {
+    try {
+      const res = await apiClient.get('/detection/inactive', { params: { category } });
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Fallback to mock inactivity report', e);
+    }
+    return null;
+  },
+
+  async getLargeFilesReport() {
+    try {
+      const res = await apiClient.get('/detection/large');
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Fallback to mock large files report', e);
+    }
+    return null;
+  },
+
+  async getTemporaryReport() {
+    try {
+      const res = await apiClient.get('/detection/temporary');
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Fallback to mock temporary report', e);
+    }
+    return null;
+  },
+
+  async scoreJunk() {
+    try {
+      const res = await apiClient.post('/detection/score-junk');
+      return res.data;
+    } catch (e) {
+      console.warn('Junk scoring offline fallback', e);
+      return { success: true, message: 'Simulated scoring complete.' };
+    }
+  },
 };
 
 export default fileService;

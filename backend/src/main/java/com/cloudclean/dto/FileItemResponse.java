@@ -26,6 +26,12 @@ public class FileItemResponse {
     private String recommendationStatus;
     private String hash;
     private Double blurScore;
+    private Integer junkScore;
+    private String riskCategory;
+    private Double qualityScore;
+    private String inactivityCategory;
+    private boolean isTemporary;
+    private Map<String, Object> evidence;
     private String previewUrl;
     private Map<String, Object> metadata;
     private Instant createdAt;
@@ -53,6 +59,12 @@ public class FileItemResponse {
             this.recommendationStatus = item.getRecommendationStatus();
             this.hash = item.getHash();
             this.blurScore = item.getBlurScore();
+            this.junkScore = item.getJunkScore();
+            this.riskCategory = item.getRiskCategory();
+            this.qualityScore = item.getQualityScore();
+            this.inactivityCategory = item.getInactivityCategory();
+            this.isTemporary = item.isTemporary();
+            this.evidence = item.getEvidence();
             this.previewUrl = item.getPreviewUrl();
             this.metadata = item.getMetadata();
             this.createdAt = item.getCreatedAt();
@@ -216,6 +228,54 @@ public class FileItemResponse {
 
     public void setBlurScore(Double blurScore) {
         this.blurScore = blurScore;
+    }
+
+    public Integer getJunkScore() {
+        return junkScore;
+    }
+
+    public void setJunkScore(Integer junkScore) {
+        this.junkScore = junkScore;
+    }
+
+    public String getRiskCategory() {
+        return riskCategory;
+    }
+
+    public void setRiskCategory(String riskCategory) {
+        this.riskCategory = riskCategory;
+    }
+
+    public Double getQualityScore() {
+        return qualityScore;
+    }
+
+    public void setQualityScore(Double qualityScore) {
+        this.qualityScore = qualityScore;
+    }
+
+    public String getInactivityCategory() {
+        return inactivityCategory;
+    }
+
+    public void setInactivityCategory(String inactivityCategory) {
+        this.inactivityCategory = inactivityCategory;
+    }
+
+    public boolean isTemporary() {
+        return isTemporary;
+    }
+
+    public void setTemporary(boolean temporary) {
+        isTemporary = temporary;
+    }
+
+    public Map<String, Object> getEvidence() {
+        return evidence;
+    }
+
+    public void setEvidence(Map<String, Object> evidence) {
+        this.evidence = evidence;
     }
 
     public String getPreviewUrl() {

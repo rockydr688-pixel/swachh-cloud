@@ -32,6 +32,11 @@ backend/target/
 *.sln
 *.sw?
 
-# Environment
-.env.local
-.env.*.local
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+venv/
+.venv/
+env/

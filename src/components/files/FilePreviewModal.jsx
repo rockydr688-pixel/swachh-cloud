@@ -121,6 +121,46 @@ export const FilePreviewModal = ({
           </div>
         ) : null}
 
+        {/* AI Junk Score & Risk Assessment */}
+        {file.junkScore !== undefined && (
+          <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+                Intelligent Junk Score
+              </span>
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={
+                    file.riskCategory === 'high'
+                      ? 'danger'
+                      : file.riskCategory === 'low'
+                      ? 'success'
+                      : 'warning'
+                  }
+                  size="xs"
+                >
+                  {file.riskCategory ? `${file.riskCategory.toUpperCase()} RISK` : 'ASSESSED'}
+                </Badge>
+                <span className="text-sm font-extrabold text-slate-900">
+                  {file.junkScore} / 100
+                </span>
+              </div>
+            </div>
+            <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+              <div
+                className={`h-full transition-all duration-500 rounded-full ${
+                  file.junkScore >= 60
+                    ? 'bg-rose-500'
+                    : file.junkScore >= 30
+                    ? 'bg-amber-500'
+                    : 'bg-emerald-500'
+                }`}
+                style={{ width: `${Math.min(100, Math.max(5, file.junkScore))}%` }}
+              />
+            </div>
+          </div>
+        )}
+
         {/* AI Detection Reason Alert */}
         <div className="p-4 rounded-xl bg-indigo-50/70 border border-indigo-100 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-indigo-600 shrink-0 mt-0.5" />
@@ -162,13 +202,27 @@ export const FilePreviewModal = ({
             <span className="text-slate-800 font-semibold">
               {formatDateTime(file.lastAccessed)}
             </span>
+            <span className="text-[10px] text-slate-500 block mt-0.5">
+              {file.lastAccessedReliable
+                ? 'Verified filesystem access timestamp'
+                : 'Timestamp unavailable (age derived from modification)'}
+            </span>
           </div>
 
           {file.hash && (
             <div className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 sm:col-span-2">
-              <span className="text-slate-400 font-medium block">Cryptographic Hash</span>
+              <span className="text-slate-400 font-medium block">SHA-256 Checksum</span>
               <span className="text-slate-700 font-mono text-[11px] break-all">
                 {file.hash}
+              </span>
+            </div>
+          )}
+
+          {file.perceptualHash && (
+            <div className="p-3 rounded-lg border border-slate-100 bg-slate-50/50 sm:col-span-2">
+              <span className="text-slate-400 font-medium block">Perceptual dHash (Vision)</span>
+              <span className="text-violet-700 font-mono text-[11px] break-all">
+                {file.perceptualHash}
               </span>
             </div>
           )}

@@ -73,6 +73,20 @@ public class FileItem {
 
     private String previewUrl;
 
+    private Integer junkScore = 0; // 0 - 100
+
+    private String riskCategory = "low"; // "low" | "medium" | "high"
+
+    private String perceptualHash; // 64-bit dHash hex
+
+    private boolean isTemporary = false;
+
+    private String inactivityCategory = "active"; // "30_days" | "90_days" | "180_days" | "365_days" | "active"
+
+    private Double qualityScore; // 0.0 - 100.0
+
+    private Map<String, Object> evidence = new HashMap<>();
+
     private boolean isDeleted = false;
 
     private Instant deletedAt;
@@ -277,6 +291,62 @@ public class FileItem {
 
     public void setPreviewUrl(String previewUrl) {
         this.previewUrl = previewUrl;
+    }
+
+    public Integer getJunkScore() {
+        return junkScore;
+    }
+
+    public void setJunkScore(Integer junkScore) {
+        this.junkScore = junkScore;
+    }
+
+    public String getRiskCategory() {
+        return riskCategory;
+    }
+
+    public void setRiskCategory(String riskCategory) {
+        this.riskCategory = riskCategory;
+    }
+
+    public String getPerceptualHash() {
+        return perceptualHash;
+    }
+
+    public void setPerceptualHash(String perceptualHash) {
+        this.perceptualHash = perceptualHash;
+    }
+
+    public boolean isTemporary() {
+        return isTemporary;
+    }
+
+    public void setTemporary(boolean temporary) {
+        isTemporary = temporary;
+    }
+
+    public String getInactivityCategory() {
+        return inactivityCategory;
+    }
+
+    public void setInactivityCategory(String inactivityCategory) {
+        this.inactivityCategory = inactivityCategory;
+    }
+
+    public Double getQualityScore() {
+        return qualityScore;
+    }
+
+    public void setQualityScore(Double qualityScore) {
+        this.qualityScore = qualityScore;
+    }
+
+    public Map<String, Object> getEvidence() {
+        return evidence;
+    }
+
+    public void setEvidence(Map<String, Object> evidence) {
+        this.evidence = evidence;
     }
 
     public boolean isDeleted() {

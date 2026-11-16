@@ -32,6 +32,11 @@ app:
     client-id: ${GOOGLE_CLIENT_ID:mock-google-client-id.apps.googleusercontent.com}
     client-secret: ${GOOGLE_CLIENT_SECRET:mock-google-client-secret}
     redirect-uri: ${GOOGLE_REDIRECT_URI:http://localhost:3000/oauth/callback}
+  ai-service:
+    url: ${AI_SERVICE_URL:http://127.0.0.1:8001}
+    secret: ${AI_SERVICE_SECRET:cloudclean-ai-internal-key-32chars!}
+    blur-heavy-threshold: 100.0
+    blur-moderate-threshold: 250.0
 
 # Swagger OpenAPI Documentation
 springdoc:

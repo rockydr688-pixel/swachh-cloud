@@ -18,6 +18,9 @@ import {
   CheckCircle,
   AlertTriangle,
   ZoomIn,
+  Cpu,
+  Sliders,
+  Sparkles,
 } from 'lucide-react';
 
 export const BlurryImages = () => {
@@ -25,10 +28,12 @@ export const BlurryImages = () => {
   const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
   const [search, setSearch] = useState('');
+  const [filterType, setFilterType] = useState('all'); // 'all' | 'heavy' | 'moderate' | 'exposure'
   const [sortBy, setSortBy] = useState('score');
   const [sortOrder, setSortOrder] = useState('asc');
   const [selectedFile, setSelectedFile] = useState(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [threshold, setThreshold] = useState(250.0);
 
   const fetchBlurryImages = async () => {
     setLoading(true);
@@ -39,9 +44,15 @@ export const BlurryImages = () => {
         sortBy,
         sortOrder,
         page: 1,
-        limit: 20,
+        limit: 30,
       });
-      setFiles(res.data);
+      let result = res.data || [];
+      if (filterType === 'heavy') {
+        result = result.filter((f) => (f.blurScore || 0) < 0.35 || f.detectionReason?.includes('heavily'));
+      } else if (filterType === 'exposure') {
+        result = result.filter((f) => f.detectionReason?.toLowerCase().includes('exposure') || f.detectionReason?.toLowerCase().includes('dark'));
+      }
+      setFiles(result);
     } catch (err) {
       console.error(err);
     } finally {
@@ -51,7 +62,7 @@ export const BlurryImages = () => {
 
   useEffect(() => {
     fetchBlurryImages();
-  }, [search, sortBy, sortOrder]);
+  }, [search, sortBy, sortOrder, filterType]);
 
   const handleDelete = (id) => {
     setFiles((prev) => prev.filter((f) => f.id !== id));
@@ -60,8 +71,8 @@ export const BlurryImages = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Blurry & Low-Quality Images"
-        subtitle="Computer vision Laplacian variance analysis detecting unfocused, motion-blurred, and degraded photos."
+        title="AI Vision Image Analysis & Blur Detection"
+        subtitle="Python FastAPI + OpenCV computer vision microservice computing variance of Laplacian, exposure histograms, and quality metrics."
         breadcrumbs={[
           { label: 'Files', path: '/files' },
           { label: 'Blurry Images' },
@@ -99,21 +110,72 @@ export const BlurryImages = () => {
               onClick={() => setFiles([])}
               disabled={files.length === 0}
             >
-              Discard All Blurry (14.5 GB)
+              Batch Discard ({files.length} Photos)
             </Button>
           </div>
         }
       />
 
-      {/* Filter and Stats */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+      {/* Engine Status Banner */}
+      <div className="p-4 rounded-xl bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-md">
         <div className="flex items-center gap-3">
-          <Badge variant="violet" size="md">
-            Threshold: &lt; 85% Clarity
+          <div className="p-2.5 rounded-xl bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">
+            <Cpu className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold">FastAPI + OpenCV Vision Service</h4>
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                ACTIVE (Port 8001)
+              </span>
+            </div>
+            <p className="text-xs text-slate-300 mt-0.5">
+              Analyzing second-derivative Laplacian sharpness, resolution thresholds, and dark/overexposed luminance.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 shrink-0">
+          <Badge variant="indigo" size="sm">
+            Variance Threshold: &lt; 250.0
           </Badge>
-          <span className="text-xs text-slate-500 font-medium">
-            348 images flagged (14.5 GB potential reclaim)
-          </span>
+        </div>
+      </div>
+
+      {/* Filter and Stats Toolbar */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-slate-500 font-semibold uppercase mr-1">Classification:</span>
+          <button
+            onClick={() => setFilterType('all')}
+            className={`py-1 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
+              filterType === 'all'
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            All Flawed ({files.length})
+          </button>
+          <button
+            onClick={() => setFilterType('heavy')}
+            className={`py-1 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
+              filterType === 'heavy'
+                ? 'bg-rose-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Heavily Blurry (&lt; 100)
+          </button>
+          <button
+            onClick={() => setFilterType('exposure')}
+            className={`py-1 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
+              filterType === 'exposure'
+                ? 'bg-amber-600 text-white shadow-sm'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+            }`}
+          >
+            Poor Exposure
+          </button>
         </div>
 
         <div className="flex items-center gap-2">
@@ -123,8 +185,8 @@ export const BlurryImages = () => {
             onChange={(e) => setSortBy(e.target.value)}
             className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 font-medium"
           >
-            <option value="score">Blur Score (Blurriest First)</option>
-            <option value="size">Size (Largest First)</option>
+            <option value="score">Quality Score (Lowest First)</option>
+            <option value="size">File Size (Largest First)</option>
             <option value="date">Date Taken</option>
           </select>
         </div>
@@ -137,11 +199,12 @@ export const BlurryImages = () => {
             <Card
               key={file.id}
               noPadding
-              className="overflow-hidden hover:shadow-md transition-shadow group flex flex-col justify-between"
+              className="overflow-hidden hover:shadow-md transition-shadow group flex flex-col justify-between border-slate-200"
             >
               <div>
                 {/* Image Container with blur badge */}
-                <div className="relative h-48 bg-slate-950 overflow-hidden cursor-pointer"
+                <div
+                  className="relative h-48 bg-slate-950 overflow-hidden cursor-pointer"
                   onClick={() => {
                     setSelectedFile(file);
                     setPreviewOpen(true);
@@ -159,10 +222,20 @@ export const BlurryImages = () => {
                     </div>
                   )}
 
-                  <div className="absolute top-2.5 left-2.5">
-                    <Badge variant="warning" size="xs">
-                      {formatBlurScore(file.blurScore)}
+                  <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
+                    <Badge
+                      variant={
+                        (file.blurScore || 0) < 0.4 ? 'danger' : 'warning'
+                      }
+                      size="xs"
+                    >
+                      {formatBlurScore(file.blurScore)} Blur
                     </Badge>
+                    {file.junkScore !== undefined && (
+                      <span className="bg-slate-900/80 backdrop-blur-sm text-white px-2 py-0.5 rounded text-[10px] font-bold">
+                        Score: {file.junkScore}
+                      </span>
+                    )}
                   </div>
 
                   <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
@@ -173,18 +246,19 @@ export const BlurryImages = () => {
                 </div>
 
                 {/* Details */}
-                <div className="p-4 space-y-1.5">
+                <div className="p-4 space-y-2">
                   <h4
                     className="text-xs font-bold text-slate-900 truncate"
                     title={file.name}
                   >
                     {file.name}
                   </h4>
-                  <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <div className="flex items-center justify-between text-[11px] text-slate-500 font-medium">
                     <span>{formatBytes(file.sizeBytes)}</span>
                     <span>{formatDate(file.lastModified)}</span>
                   </div>
-                  <p className="text-[11px] text-indigo-700 bg-indigo-50/70 p-2 rounded-lg border border-indigo-100/60 line-clamp-2">
+
+                  <p className="text-[11px] text-indigo-900 bg-indigo-50/70 p-2 rounded-lg border border-indigo-100/60 line-clamp-2">
                     {file.detectionReason}
                   </p>
                 </div>
@@ -240,4 +314,3 @@ export const BlurryImages = () => {
 };
 
 export default BlurryImages;
-

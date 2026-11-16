@@ -26,13 +26,21 @@ public class FileAnalysis {
     @NotBlank
     private String fileId;
 
-    private String analysisType; // "duplicate" | "blur" | "large" | "inactivity"
+    private String analysisType; // "duplicate" | "blur" | "large" | "inactivity" | "temporary" | "junk_score"
 
-    private double score; // blur score or confidence
+    private double score; // blur score, quality score, or confidence
+
+    private Integer junkScore; // 0 - 100
+
+    private String riskCategory; // "low" | "medium" | "high"
+
+    private String recommendedAction; // "Safe to Delete" | "Review & Delete" | "Recommended for Archival" | "Keep Original"
 
     private boolean isFlagged;
 
     private String flaggedReason;
+
+    private String perceptualHash;
 
     private Map<String, Object> metrics = new HashMap<>();
 
@@ -88,6 +96,38 @@ public class FileAnalysis {
 
     public void setScore(double score) {
         this.score = score;
+    }
+
+    public Integer getJunkScore() {
+        return junkScore;
+    }
+
+    public void setJunkScore(Integer junkScore) {
+        this.junkScore = junkScore;
+    }
+
+    public String getRiskCategory() {
+        return riskCategory;
+    }
+
+    public void setRiskCategory(String riskCategory) {
+        this.riskCategory = riskCategory;
+    }
+
+    public String getRecommendedAction() {
+        return recommendedAction;
+    }
+
+    public void setRecommendedAction(String recommendedAction) {
+        this.recommendedAction = recommendedAction;
+    }
+
+    public String getPerceptualHash() {
+        return perceptualHash;
+    }
+
+    public void setPerceptualHash(String perceptualHash) {
+        this.perceptualHash = perceptualHash;
     }
 
     public boolean isFlagged() {

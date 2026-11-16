@@ -8,16 +8,38 @@ import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
 import { fileService } from '../services/fileService';
 import { formatBytes } from '../utils/formatters';
-import { Maximize2, Archive, Trash2, Filter } from 'lucide-react';
+import {
+  Maximize2,
+  Archive,
+  Trash2,
+  Filter,
+  SlidersHorizontal,
+  Video,
+  Image as ImageIcon,
+  FileArchive,
+  FileText,
+  HelpCircle,
+} from 'lucide-react';
 
 export const LargeFiles = () => {
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState('all'); // 'all' | 'image' | 'video' | 'archive' | 'document' | 'other'
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState('size');
   const [sortOrder, setSortOrder] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
   const [pagination, setPagination] = useState({ page: 1, limit: 10, totalCount: 0, totalPages: 1 });
+  const [showConfig, setShowConfig] = useState(false);
+
+  // Configurable thresholds in MB
+  const [thresholds, setThresholds] = useState({
+    image: 25,
+    video: 500,
+    archive: 1024,
+    document: 100,
+    other: 500,
+  });
 
   const fetchLargeFiles = async () => {
     setLoading(true);
@@ -30,7 +52,20 @@ export const LargeFiles = () => {
         page: currentPage,
         limit: 10,
       });
-      setFiles(res.data);
+
+      let items = res.data || [];
+      if (selectedCategory !== 'all') {
+        items = items.filter((f) => {
+          const type = (f.fileType || '').toLowerCase();
+          if (selectedCategory === 'image') return type === 'image';
+          if (selectedCategory === 'video') return type === 'video';
+          if (selectedCategory === 'archive') return type === 'archive';
+          if (selectedCategory === 'document') return type === 'document';
+          return type !== 'image' && type !== 'video' && type !== 'archive' && type !== 'document';
+        });
+      }
+
+      setFiles(items);
       setPagination(res.pagination);
     } catch (err) {
       console.error(err);
@@ -41,7 +76,7 @@ export const LargeFiles = () => {
 
   useEffect(() => {
     fetchLargeFiles();
-  }, [search, sortBy, sortOrder, currentPage]);
+  }, [selectedCategory, search, sortBy, sortOrder, currentPage]);
 
   const handleDeleteFile = (id) => {
     setFiles((prev) => prev.filter((f) => f.id !== id));
@@ -54,18 +89,185 @@ export const LargeFiles = () => {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Large Files (>500MB)"
-        subtitle="Oversized virtual machine disks, 4K screen recordings, and machine learning model checkpoints consuming primary drive capacity."
+        title="Categorized Large File Detection"
+        subtitle="Identifies storage-heavy assets categorized into images, 4K videos, archives, and virtual disks with customizable thresholds."
         breadcrumbs={[
           { label: 'Files', path: '/files' },
           { label: 'Large Files' },
         ]}
         actions={
-          <Badge variant="warning" size="md">
-            112.8 GB in 185 Files
-          </Badge>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              icon={SlidersHorizontal}
+              onClick={() => setShowConfig(!showConfig)}
+            >
+              Configure Thresholds
+            </Button>
+            <Badge variant="warning" size="md">
+              112.8 GB in 185 Files
+            </Badge>
+          </div>
         }
       />
+
+      {/* Thresholds Customization Drawer */}
+      {showConfig && (
+        <Card className="p-4 bg-slate-50 border-indigo-200">
+          <div className="flex items-center justify-between mb-3">
+            <h4 className="text-xs font-bold text-slate-900 uppercase">
+              Custom Size Thresholds (MB)
+            </h4>
+            <span className="text-[11px] text-slate-500">
+              Files exceeding these category thresholds will be flagged
+            </span>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                Images (MB)
+              </label>
+              <input
+                type="number"
+                value={thresholds.image}
+                onChange={(e) => setThresholds({ ...thresholds, image: Number(e.target.value) })}
+                className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                Videos (MB)
+              </label>
+              <input
+                type="number"
+                value={thresholds.video}
+                onChange={(e) => setThresholds({ ...thresholds, video: Number(e.target.value) })}
+                className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                Archives (MB)
+              </label>
+              <input
+                type="number"
+                value={thresholds.archive}
+                onChange={(e) => setThresholds({ ...thresholds, archive: Number(e.target.value) })}
+                className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                Documents (MB)
+              </label>
+              <input
+                type="number"
+                value={thresholds.document}
+                onChange={(e) => setThresholds({ ...thresholds, document: Number(e.target.value) })}
+                className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-semibold text-slate-700 block mb-1">
+                Other Files (MB)
+              </label>
+              <input
+                type="number"
+                value={thresholds.other}
+                onChange={(e) => setThresholds({ ...thresholds, other: Number(e.target.value) })}
+                className="w-full text-xs p-1.5 border border-slate-300 rounded bg-white"
+              />
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Category Tabs */}
+      <div className="flex border-b border-slate-200 overflow-x-auto">
+        <button
+          onClick={() => {
+            setSelectedCategory('all');
+            setCurrentPage(1);
+          }}
+          className={`py-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
+            selectedCategory === 'all'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          All Large Files
+        </button>
+        <button
+          onClick={() => {
+            setSelectedCategory('video');
+            setCurrentPage(1);
+          }}
+          className={`flex items-center gap-1.5 py-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
+            selectedCategory === 'video'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Video className="w-3.5 h-3.5" />
+          <span>Videos (&gt; {thresholds.video}MB)</span>
+        </button>
+        <button
+          onClick={() => {
+            setSelectedCategory('archive');
+            setCurrentPage(1);
+          }}
+          className={`flex items-center gap-1.5 py-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
+            selectedCategory === 'archive'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <FileArchive className="w-3.5 h-3.5" />
+          <span>Archives (&gt; {thresholds.archive}MB)</span>
+        </button>
+        <button
+          onClick={() => {
+            setSelectedCategory('image');
+            setCurrentPage(1);
+          }}
+          className={`flex items-center gap-1.5 py-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
+            selectedCategory === 'image'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <ImageIcon className="w-3.5 h-3.5" />
+          <span>Images (&gt; {thresholds.image}MB)</span>
+        </button>
+        <button
+          onClick={() => {
+            setSelectedCategory('document');
+            setCurrentPage(1);
+          }}
+          className={`flex items-center gap-1.5 py-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
+            selectedCategory === 'document'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <FileText className="w-3.5 h-3.5" />
+          <span>Documents (&gt; {thresholds.document}MB)</span>
+        </button>
+        <button
+          onClick={() => {
+            setSelectedCategory('other');
+            setCurrentPage(1);
+          }}
+          className={`py-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-all ${
+            selectedCategory === 'other'
+              ? 'border-indigo-600 text-indigo-600 bg-indigo-50/40'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          Other Files (&gt; {thresholds.other}MB)
+        </button>
+      </div>
 
       {/* Quick Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -111,6 +313,7 @@ export const LargeFiles = () => {
         onReset={() => {
           setSearch('');
           setSortBy('size');
+          setSortOrder('desc');
         }}
       />
 
@@ -141,4 +344,3 @@ export const LargeFiles = () => {
 };
 
 export default LargeFiles;
-

@@ -1,7 +1,6 @@
 package com.cloudclean.scanner;
 
-import com.cloudclean.analysis.ImageAnalysisService;
-import com.cloudclean.detection.DuplicateDetectionService;
+import com.cloudclean.detection.*;
 import com.cloudclean.dto.ScanJobResponse;
 import com.cloudclean.dto.ScanRequest;
 import com.cloudclean.exception.BadRequestException;
@@ -30,8 +29,12 @@ class ScanServiceTest {
     private StorageProviderRegistry storageProviderRegistry;
     private LocalAgentScanner localAgentScanner;
     private FileService fileService;
-    private DuplicateDetectionService duplicateDetectionService;
-    private ImageAnalysisService imageAnalysisService;
+    private DuplicateDetector duplicateDetector;
+    private BlurDetector blurDetector;
+    private LargeFileDetector largeFileDetector;
+    private InactiveFileDetector inactiveFileDetector;
+    private TemporaryFileDetector temporaryFileDetector;
+    private JunkScoringEngine junkScoringEngine;
     private ScanService scanService;
 
     @BeforeEach
@@ -42,8 +45,12 @@ class ScanServiceTest {
         storageProviderRegistry = Mockito.mock(StorageProviderRegistry.class);
         localAgentScanner = Mockito.mock(LocalAgentScanner.class);
         fileService = Mockito.mock(FileService.class);
-        duplicateDetectionService = Mockito.mock(DuplicateDetectionService.class);
-        imageAnalysisService = Mockito.mock(ImageAnalysisService.class);
+        duplicateDetector = Mockito.mock(DuplicateDetector.class);
+        blurDetector = Mockito.mock(BlurDetector.class);
+        largeFileDetector = Mockito.mock(LargeFileDetector.class);
+        inactiveFileDetector = Mockito.mock(InactiveFileDetector.class);
+        temporaryFileDetector = Mockito.mock(TemporaryFileDetector.class);
+        junkScoringEngine = Mockito.mock(JunkScoringEngine.class);
 
         scanService = new ScanService(
                 scanJobRepository,
@@ -52,8 +59,12 @@ class ScanServiceTest {
                 storageProviderRegistry,
                 localAgentScanner,
                 fileService,
-                duplicateDetectionService,
-                imageAnalysisService
+                duplicateDetector,
+                blurDetector,
+                largeFileDetector,
+                inactiveFileDetector,
+                temporaryFileDetector,
+                junkScoringEngine
         );
     }
 
@@ -127,4 +138,3 @@ class ScanServiceTest {
         verify(scanJobRepository, times(1)).save(activeJob);
     }
 }
-

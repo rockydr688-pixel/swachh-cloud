@@ -1,7 +1,7 @@
 package com.cloudclean.scanner;
 
 import com.cloudclean.analysis.ImageAnalysisService;
-import com.cloudclean.detection.DuplicateDetectionService;
+import com.cloudclean.detection.*;
 import com.cloudclean.dto.PageResponse;
 import com.cloudclean.dto.ScanJobResponse;
 import com.cloudclean.dto.ScanRequest;
@@ -44,8 +44,12 @@ public class ScanService {
     private final StorageProviderRegistry storageProviderRegistry;
     private final LocalAgentScanner localAgentScanner;
     private final FileService fileService;
-    private final DuplicateDetectionService duplicateDetectionService;
-    private final ImageAnalysisService imageAnalysisService;
+    private final DuplicateDetector duplicateDetector;
+    private final BlurDetector blurDetector;
+    private final LargeFileDetector largeFileDetector;
+    private final InactiveFileDetector inactiveFileDetector;
+    private final TemporaryFileDetector temporaryFileDetector;
+    private final JunkScoringEngine junkScoringEngine;
 
     // In-memory cancellation registry for active scan jobs
     private final Map<String, AtomicBoolean> activeScanCancellations = new ConcurrentHashMap<>();
@@ -56,16 +60,24 @@ public class ScanService {
                        StorageProviderRegistry storageProviderRegistry,
                        LocalAgentScanner localAgentScanner,
                        FileService fileService,
-                       DuplicateDetectionService duplicateDetectionService,
-                       ImageAnalysisService imageAnalysisService) {
+                       DuplicateDetector duplicateDetector,
+                       BlurDetector blurDetector,
+                       LargeFileDetector largeFileDetector,
+                       InactiveFileDetector inactiveFileDetector,
+                       TemporaryFileDetector temporaryFileDetector,
+                       JunkScoringEngine junkScoringEngine) {
         this.scanJobRepository = scanJobRepository;
         this.fileItemRepository = fileItemRepository;
         this.connectionRepository = connectionRepository;
         this.storageProviderRegistry = storageProviderRegistry;
         this.localAgentScanner = localAgentScanner;
         this.fileService = fileService;
-        this.duplicateDetectionService = duplicateDetectionService;
-        this.imageAnalysisService = imageAnalysisService;
+        this.duplicateDetector = duplicateDetector;
+        this.blurDetector = blurDetector;
+        this.largeFileDetector = largeFileDetector;
+        this.inactiveFileDetector = inactiveFileDetector;
+        this.temporaryFileDetector = temporaryFileDetector;
+        this.junkScoringEngine = junkScoringEngine;
     }
 
     /**
@@ -146,7 +158,7 @@ public class ScanService {
                         options,
                         cancellationFlag::get,
                         progress -> {
-                            int pct = 10 + (int) Math.min(50, (progress.filesScanned() / 10.0));
+                            int pct = 10 + (int) Math.min(30, (progress.filesScanned() / 10.0));
                             updateJob(jobId, pct, "in_progress", progress.currentDirectory(),
                                     progress.filesScanned(), progress.failedFiles(), progress.totalBytes());
                         }
@@ -161,19 +173,17 @@ public class ScanService {
                 return;
             }
 
-            // If local/cloud returned 0 files (e.g. empty mock directories), ensure fallback test data is available
+            // Ingest or ensure test fallback files
             if (discoveredFiles.isEmpty()) {
                 fileService.ensureInitialFilesForUser(userId);
             } else {
-                // Ingest discovered files into MongoDB
                 ingestDiscoveredFiles(userId, connection != null ? connection.getId() : null, discoveredFiles);
             }
 
-            updateJob(jobId, 65, "in_progress", "Analyzing duplicates and hashes...", discoveredFiles.size(), failedCount, totalBytes);
-
-            // Heuristic passes
+            // Diagnostic Pass 1: Duplicate File Detection
+            updateJob(jobId, 45, "in_progress", "Running SHA-256 duplicate detection...", discoveredFiles.size(), failedCount, totalBytes);
             if (request.isCheckDuplicates()) {
-                duplicateDetectionService.processDuplicateDetection(userId);
+                duplicateDetector.detectDuplicates(userId);
             }
 
             if (cancellationFlag.get()) {
@@ -181,11 +191,50 @@ public class ScanService {
                 return;
             }
 
-            updateJob(jobId, 85, "in_progress", "Evaluating image sharpness and blur...", discoveredFiles.size(), failedCount, totalBytes);
-
+            // Diagnostic Pass 2: Blurry Image Analysis
+            updateJob(jobId, 60, "in_progress", "Running Laplacian image sharpness diagnostics...", discoveredFiles.size(), failedCount, totalBytes);
             if (request.isCheckBlurry()) {
-                imageAnalysisService.analyzeImagesForUser(userId, request.getBlurThreshold());
+                blurDetector.analyzeImages(userId, request.getBlurThreshold());
             }
+
+            if (cancellationFlag.get()) {
+                handleCancellation(jobId, startTime);
+                return;
+            }
+
+            // Diagnostic Pass 3: Large File Detection
+            updateJob(jobId, 75, "in_progress", "Auditing oversized media and archive assets...", discoveredFiles.size(), failedCount, totalBytes);
+            if (request.isCheckLargeFiles()) {
+                long customLargeBytes = request.getLargeFileSizeThresholdMB() > 0
+                        ? request.getLargeFileSizeThresholdMB() * 1024L * 1024L
+                        : 500L * 1024L * 1024L;
+                LargeFileDetector.LargeFileThresholds thresholds = new LargeFileDetector.LargeFileThresholds(
+                        25L * 1024 * 1024,
+                        customLargeBytes,
+                        customLargeBytes * 2,
+                        100L * 1024 * 1024,
+                        customLargeBytes
+                );
+                largeFileDetector.detectLargeFiles(userId, thresholds);
+            }
+
+            if (cancellationFlag.get()) {
+                handleCancellation(jobId, startTime);
+                return;
+            }
+
+            // Diagnostic Pass 4: Inactive File Audit
+            updateJob(jobId, 85, "in_progress", "Evaluating dormancy and timestamp reliability...", discoveredFiles.size(), failedCount, totalBytes);
+            if (request.isCheckInactive()) {
+                inactiveFileDetector.detectInactiveFiles(userId, request.getInactiveDaysThreshold());
+            }
+
+            // Diagnostic Pass 5: Temporary File Analysis
+            temporaryFileDetector.detectTemporaryFiles(userId);
+
+            // Diagnostic Pass 6: Junk Scoring Engine (Composite Evaluation)
+            updateJob(jobId, 95, "in_progress", "Synthesizing junk score and risk assessment...", discoveredFiles.size(), failedCount, totalBytes);
+            junkScoringEngine.scoreAllUserFiles(userId);
 
             if (cancellationFlag.get()) {
                 handleCancellation(jobId, startTime);
@@ -195,9 +244,13 @@ public class ScanService {
             // Compute completed metrics
             long flaggedCount = fileItemRepository.countByUserIdAndCategoryAndIsDeletedFalse(userId, "duplicate")
                     + fileItemRepository.countByUserIdAndCategoryAndIsDeletedFalse(userId, "blurry")
-                    + fileItemRepository.countByUserIdAndCategoryAndIsDeletedFalse(userId, "large");
+                    + fileItemRepository.countByUserIdAndCategoryAndIsDeletedFalse(userId, "large")
+                    + fileItemRepository.countByUserIdAndCategoryAndIsDeletedFalse(userId, "inactive")
+                    + fileItemRepository.countByUserIdAndCategoryAndIsDeletedFalse(userId, "temporary");
 
-            List<FileItem> flaggedItems = fileItemRepository.findByUserIdAndCategoryAndIsDeletedFalse(userId, "duplicate");
+            List<FileItem> flaggedItems = fileItemRepository.findByUserIdAndIsDeletedFalse(userId).stream()
+                    .filter(f -> !"clean".equalsIgnoreCase(f.getCategory()) && !"Keep Original".equalsIgnoreCase(f.getRecommendationStatus()))
+                    .toList();
             long savingsBytes = flaggedItems.stream().mapToLong(FileItem::getSizeBytes).sum();
 
             ScanJob job = scanJobRepository.findById(jobId).orElse(null);
@@ -217,7 +270,7 @@ public class ScanService {
                     connectionRepository.save(connection);
                 }
 
-                log.info("Scan job {} completed successfully in {}", jobId, job.getDuration());
+                log.info("Intelligent scan job {} completed successfully in {}", jobId, job.getDuration());
             }
         } catch (Exception e) {
             log.error("Scan job {} failed with exception", jobId, e);
