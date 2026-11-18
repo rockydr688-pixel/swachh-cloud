@@ -9,9 +9,11 @@ import java.util.Optional;
 
 @Repository
 public interface FileAnalysisRepository extends MongoRepository<FileAnalysis, String> {
+    List<FileAnalysis> findByUserId(String userId);
     List<FileAnalysis> findByUserIdAndFileId(String userId, String fileId);
     List<FileAnalysis> findByUserIdAndAnalysisType(String userId, String analysisType);
     Optional<FileAnalysis> findByUserIdAndFileIdAndAnalysisType(String userId, String fileId, String analysisType);
+    long countByUserId(String userId);
     void deleteByFileId(String fileId);
 }
 

@@ -48,6 +48,14 @@ public class CleanupHistory {
 
     private List<String> errorMessages = new ArrayList<>();
 
+    private String errorInformation;
+
+    private String storageProvider = "LOCAL";
+
+    private String originalLocationReference;
+
+    private String recoveryStatus = "AVAILABLE"; // "AVAILABLE" | "RESTORED" | "UNAVAILABLE"
+
     private boolean restorationSupported = true;
 
     private boolean isRestored = false;
@@ -217,6 +225,42 @@ public class CleanupHistory {
 
     public void setCleanedFilesSnapshot(List<Map<String, Object>> cleanedFilesSnapshot) {
         this.cleanedFilesSnapshot = cleanedFilesSnapshot;
+    }
+
+    public String getErrorInformation() {
+        if (errorInformation != null) return errorInformation;
+        if (errorMessages != null && !errorMessages.isEmpty()) return String.join("; ", errorMessages);
+        return null;
+    }
+
+    public void setErrorInformation(String errorInformation) {
+        this.errorInformation = errorInformation;
+    }
+
+    public String getStorageProvider() {
+        return storageProvider;
+    }
+
+    public void setStorageProvider(String storageProvider) {
+        this.storageProvider = storageProvider;
+    }
+
+    public String getOriginalLocationReference() {
+        return originalLocationReference;
+    }
+
+    public void setOriginalLocationReference(String originalLocationReference) {
+        this.originalLocationReference = originalLocationReference;
+    }
+
+    public String getRecoveryStatus() {
+        if (isRestored) return "RESTORED";
+        if (!restorationSupported) return "UNAVAILABLE";
+        return recoveryStatus != null ? recoveryStatus : "AVAILABLE";
+    }
+
+    public void setRecoveryStatus(String recoveryStatus) {
+        this.recoveryStatus = recoveryStatus;
     }
 
     public Instant getCreatedAt() {

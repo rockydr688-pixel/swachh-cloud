@@ -46,8 +46,6 @@ public class DashboardService {
      * Avoids double-counting storage across overlapping categories/recommendations.
      */
     public DashboardMetricsResponse getDashboardMetrics(String userId) {
-        fileService.ensureInitialFilesForUser(userId);
-
         List<FileItem> allUserFiles = fileItemRepository.findByUserId(userId);
         List<FileItem> activeFiles = allUserFiles.stream().filter(f -> !f.isDeleted()).toList();
 

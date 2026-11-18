@@ -176,10 +176,8 @@ public class ScanService {
                 return;
             }
 
-            // Ingest or ensure test fallback files
-            if (discoveredFiles.isEmpty()) {
-                fileService.ensureInitialFilesForUser(userId);
-            } else {
+            // Ingest discovered files
+            if (!discoveredFiles.isEmpty()) {
                 ingestDiscoveredFiles(userId, connection != null ? connection.getId() : null, discoveredFiles);
             }
 
@@ -333,8 +331,16 @@ public class ScanService {
         for (ProviderFileMetadata meta : files) {
             if (meta.isDirectory()) continue;
 
-            FileItem item = fileItemRepository.findByUserIdAndProviderFileIdAndIsDeletedFalse(userId, meta.getProviderFileId())
-                    .orElse(new FileItem());
+            FileItem item = null;
+            if (meta.getProviderFileId() != null && !meta.getProviderFileId().isBlank()) {
+                item = fileItemRepository.findByUserIdAndProviderFileIdAndIsDeletedFalse(userId, meta.getProviderFileId()).orElse(null);
+            }
+            if (item == null && meta.getStorageLocation() != null && !meta.getStorageLocation().isBlank()) {
+                item = fileItemRepository.findByUserIdAndStorageLocationAndIsDeletedFalse(userId, meta.getStorageLocation()).orElse(null);
+            }
+            if (item == null) {
+                item = new FileItem();
+            }
 
             item.setUserId(userId);
             item.setStorageConnectionId(connectionId);
@@ -345,6 +351,18 @@ public class ScanService {
             item.setSizeBytes(meta.getSizeBytes());
             item.setStorageLocation(meta.getStorageLocation());
             item.setStorageType(meta.getStorageType());
+            item.setStorageProvider(meta.getStorageType() != null ? meta.getStorageType().toUpperCase() : "LOCAL");
+
+            // Extract folder path
+            if (meta.getStorageLocation() != null) {
+                int lastSlash = Math.max(meta.getStorageLocation().lastIndexOf('/'), meta.getStorageLocation().lastIndexOf('\\'));
+                if (lastSlash > 0) {
+                    item.setFolderPath(meta.getStorageLocation().substring(0, lastSlash));
+                } else {
+                    item.setFolderPath(meta.getStorageLocation());
+                }
+            }
+
             item.setCreatedTime(meta.getCreatedTime());
             item.setLastModified(meta.getModifiedTime());
             item.setLastAccessed(meta.getLastAccessedTime());

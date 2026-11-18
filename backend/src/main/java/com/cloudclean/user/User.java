@@ -35,6 +35,8 @@ public class User {
 
     private String avatarUrl;
 
+    private String userPreferencesId;
+
     private boolean enabled = true;
 
     private Set<String> roles = new HashSet<>();
@@ -130,6 +132,18 @@ public class User {
 
     public void setRoles(Set<String> roles) {
         this.roles = roles;
+    }
+
+    public String getUserPreferencesId() {
+        return userPreferencesId;
+    }
+
+    public void setUserPreferencesId(String userPreferencesId) {
+        this.userPreferencesId = userPreferencesId;
+    }
+
+    public Instant getRegistrationDate() {
+        return createdAt != null ? createdAt : Instant.now();
     }
 
     public Instant getCreatedAt() {

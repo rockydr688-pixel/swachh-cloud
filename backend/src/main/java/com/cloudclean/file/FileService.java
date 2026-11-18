@@ -29,8 +29,6 @@ public class FileService {
     }
 
     public PageResponse<FileItemResponse> getFiles(String userId, String category, int page, int size, String sortBy, String sortOrder) {
-        ensureInitialFilesForUser(userId);
-
         Sort.Direction direction = "asc".equalsIgnoreCase(sortOrder) ? Sort.Direction.ASC : Sort.Direction.DESC;
         String sortProperty = switch (sortBy.toLowerCase()) {
             case "name" -> "name";
@@ -52,8 +50,6 @@ public class FileService {
     }
 
     public PageResponse<FileItemResponse> searchFiles(String userId, String query, int page, int size) {
-        ensureInitialFilesForUser(userId);
-
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "sizeBytes"));
         Page<FileItem> filePage = fileItemRepository.searchFiles(userId, query, pageable);
         return PageResponse.of(filePage.map(FileItemResponse::new));

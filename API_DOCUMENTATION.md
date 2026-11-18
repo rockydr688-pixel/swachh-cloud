@@ -279,7 +279,81 @@ All responses conform to the standard `ApiResponse<T>` envelope:
 
 ---
 
-## 9. Error Codes & Handling
+## 9. Local Devices Management (`/api/devices`)
+
+### List Registered Devices
+- **Method / Route**: `GET /api/devices`
+- **Auth**: Bearer JWT
+- **Response**: `200 OK` (Array of registered local client agent machines, approved folders, and heartbeat status)
+
+### Register / Sync Local Device
+- **Method / Route**: `POST /api/devices`
+- **Auth**: Bearer JWT
+- **Request Body**:
+  ```json
+  {
+    "deviceName": "MacBook Pro M3",
+    "osName": "macOS 14.5",
+    "hostname": "mbp-m3.local",
+    "agentVersion": "1.0.0",
+    "approvedFolders": ["/Users/rocky/Downloads", "/Users/rocky/Documents"]
+  }
+  ```
+- **Response**: `200 OK` (Returns registered/updated device record)
+
+### Device Heartbeat
+- **Method / Route**: `POST /api/devices/{id}/heartbeat`
+- **Auth**: Bearer JWT
+- **Response**: `200 OK` (Updates `lastHeartbeat` and transitions status to `ONLINE`)
+
+### Unregister Device
+- **Method / Route**: `DELETE /api/devices/{id}`
+- **Auth**: Bearer JWT
+- **Response**: `200 OK`
+
+---
+
+## 10. User Preferences (`/api/users/preferences`)
+
+### Get Current Preferences
+- **Method / Route**: `GET /api/users/preferences`
+- **Auth**: Bearer JWT
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "data": {
+      "autoScanFrequency": "WEEKLY",
+      "inactivityDaysThreshold": 90,
+      "largeFileThresholdMb": 100,
+      "blurVarianceThreshold": 100.0,
+      "protectedExtensions": [".pem", ".key", ".env", ".keystore"],
+      "emailAlertsEnabled": true,
+      "inAppAlertsEnabled": true,
+      "theme": "DARK"
+    }
+  }
+  ```
+
+### Update Preferences
+- **Method / Route**: `PUT /api/users/preferences`
+- **Auth**: Bearer JWT
+- **Request Body**:
+  ```json
+  {
+    "autoScanFrequency": "DAILY",
+    "inactivityDaysThreshold": 60,
+    "largeFileThresholdMb": 250,
+    "blurVarianceThreshold": 120.0,
+    "emailAlertsEnabled": false,
+    "theme": "DARK"
+  }
+  ```
+- **Response**: `200 OK` (Persists new threshold values to MongoDB)
+
+---
+
+## 11. Error Codes & Handling
 
 | HTTP Code | Error Condition | Response Format |
 | :--- | :--- | :--- |

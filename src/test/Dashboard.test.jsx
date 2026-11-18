@@ -80,4 +80,30 @@ describe('Dashboard Component Tests', () => {
     expect(screen.getByRole('button', { name: /Refresh Telemetry/i })).toBeDefined();
     expect(screen.getByRole('button', { name: /Review Recommendations/i })).toBeDefined();
   });
+
+  it('renders empty state when no files have been scanned yet (0 files in MongoDB)', () => {
+    mockUseStorage.mockReturnValue({
+      stats: {
+        totalCapacityBytes: 1000000000000,
+        totalUsedBytes: 0,
+        recoverableBytes: 0,
+        totalFiles: 0,
+      },
+      recommendations: [],
+      recentScans: [],
+      loading: false,
+      runScan: vi.fn(),
+      isScanning: false,
+    });
+
+    render(
+      <MemoryRouter>
+        <Dashboard />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByText('No files scanned yet. Connect your storage to get started.')).toBeDefined();
+    expect(screen.getByRole('button', { name: /Connect Storage/i })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Start First Scan/i })).toBeDefined();
+  });
 });

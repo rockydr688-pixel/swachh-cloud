@@ -82,34 +82,41 @@ export const Dashboard = () => {
         }
       />
 
-      {/* Prominent Sample Data Notice Banner */}
-      <div className="p-4 rounded-xl bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-subtle">
-        <div className="flex items-start gap-3">
-          <div className="p-2 rounded-lg bg-amber-100 text-amber-800 shrink-0 mt-0.5">
-            <AlertTriangle className="w-5 h-5" />
+      {/* Empty State when no files scanned yet */}
+      {stats.totalFiles === 0 ? (
+        <Card className="text-center py-16 px-6 border-dashed border-2 border-slate-300 bg-white">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
+            <HardDrive className="w-8 h-8 opacity-80" />
           </div>
-          <div>
-            <h4 className="text-xs font-bold text-amber-950 uppercase tracking-wide">
-              Sample Data Preview Mode
-            </h4>
-            <p className="text-xs text-amber-900 mt-0.5">
-              Metrics below reflect realistic enterprise simulation data. Connect your local folder daemon or Google Drive in{' '}
-              <button
-                onClick={() => navigate('/connections')}
-                className="font-bold underline hover:text-amber-950"
-              >
-                Storage Connections
-              </button>{' '}
-              to populate live production diagnostics.
-            </p>
+          <h3 className="text-lg font-bold text-slate-900">
+            No files scanned yet. Connect your storage to get started.
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1.5 mb-6 leading-relaxed">
+            Link a local computer directory or authorize your Google Drive account to initiate AI bloat detection, duplicate analysis, and blur classification.
+          </p>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <Button
+              variant="primary"
+              icon={FolderOpen}
+              onClick={() => navigate('/connections')}
+              className="bg-indigo-600 hover:bg-indigo-700 shadow-sm text-xs"
+            >
+              Connect Storage
+            </Button>
+            <Button
+              variant="secondary"
+              icon={Sparkles}
+              onClick={() => runScan('Local Computer')}
+              isLoading={isScanning}
+              className="text-xs"
+            >
+              Start First Scan
+            </Button>
           </div>
-        </div>
-        <Badge variant="warning" size="sm">
-          Simulated Workspace
-        </Badge>
-      </div>
-
-      {/* Main Storage Capacity & Recoverable Banner */}
+        </Card>
+      ) : (
+        <>
+          {/* Main Storage Capacity & Recoverable Banner */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Total Storage Card */}
         <Card className="lg:col-span-2 relative overflow-hidden bg-gradient-to-br from-slate-900 via-[#0B132B] to-slate-900 text-white border-slate-800">
@@ -376,6 +383,8 @@ export const Dashboard = () => {
           </div>
         </Card>
       </div>
+      </>
+      )}
     </div>
   );
 };

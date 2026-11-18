@@ -42,5 +42,7 @@ public interface FileItemRepository extends MongoRepository<FileItem, String> {
     List<FileItem> findByUserIdAndStorageConnectionIdAndIsDeletedFalse(String userId, String connectionId);
 
     Optional<FileItem> findByUserIdAndProviderFileIdAndIsDeletedFalse(String userId, String providerFileId);
+
+    Optional<FileItem> findByUserIdAndStorageLocationAndIsDeletedFalse(String userId, String storageLocation);
 }
 

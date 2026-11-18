@@ -42,6 +42,20 @@ public class FileAnalysis {
 
     private String perceptualHash;
 
+    private Double blurScore;
+
+    private String imageResolution;
+
+    private Double imageQuality;
+
+    private boolean isDuplicate = false;
+
+    private boolean isInactive = false;
+
+    private java.util.List<String> detectionReasons = new java.util.ArrayList<>();
+
+    private Instant analysisTimestamp = Instant.now();
+
     private Map<String, Object> metrics = new HashMap<>();
 
     @CreatedDate
@@ -152,6 +166,62 @@ public class FileAnalysis {
 
     public void setMetrics(Map<String, Object> metrics) {
         this.metrics = metrics;
+    }
+
+    public Double getBlurScore() {
+        return blurScore != null ? blurScore : (analysisType != null && analysisType.contains("blur") ? score : null);
+    }
+
+    public void setBlurScore(Double blurScore) {
+        this.blurScore = blurScore;
+    }
+
+    public String getImageResolution() {
+        return imageResolution;
+    }
+
+    public void setImageResolution(String imageResolution) {
+        this.imageResolution = imageResolution;
+    }
+
+    public Double getImageQuality() {
+        return imageQuality;
+    }
+
+    public void setImageQuality(Double imageQuality) {
+        this.imageQuality = imageQuality;
+    }
+
+    public boolean isDuplicate() {
+        return isDuplicate;
+    }
+
+    public void setDuplicate(boolean duplicate) {
+        isDuplicate = duplicate;
+    }
+
+    public boolean isInactive() {
+        return isInactive;
+    }
+
+    public void setInactive(boolean inactive) {
+        isInactive = inactive;
+    }
+
+    public java.util.List<String> getDetectionReasons() {
+        return detectionReasons;
+    }
+
+    public void setDetectionReasons(java.util.List<String> detectionReasons) {
+        this.detectionReasons = detectionReasons != null ? detectionReasons : new java.util.ArrayList<>();
+    }
+
+    public Instant getAnalysisTimestamp() {
+        return analysisTimestamp != null ? analysisTimestamp : createdAt;
+    }
+
+    public void setAnalysisTimestamp(Instant analysisTimestamp) {
+        this.analysisTimestamp = analysisTimestamp;
     }
 
     public Instant getCreatedAt() {

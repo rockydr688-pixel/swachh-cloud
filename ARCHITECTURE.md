@@ -104,69 +104,88 @@ flowchart TD
 
 ---
 
-## 3. Database Design & MongoDB Collections
+## 3. Database Design & MongoDB Collections (All 12 Collections)
 
-All entities reside in the `cloudclean` database with index optimizations:
+All entities reside in the `cloudclean` database with index optimizations, tenant isolation, and audit timestamps:
 
 ### 1. `users`
-- Stores user credentials and role claims.
+- Stores user credentials, registration timestamps, and role claims.
+- **Fields**: `id`, `fullName`, `email`, `password` (BCrypt hashed), `role`, `userPreferencesId`, `createdAt`, `updatedAt`.
 - **Indexes**:
   - `email` (Unique)
   - `createdAt`
 
 ### 2. `storage_connections`
 - Monitored drive configurations and OAuth credentials.
-- **Fields**: `userId`, `provider` (`LOCAL`, `GOOGLE_DRIVE`), `encryptedAccessToken`, `encryptedRefreshToken`, `monitoredPaths`, `connectedAt`.
+- **Fields**: `id`, `userId`, `provider` (`LOCAL`, `GOOGLE_DRIVE`), `accountIdentifier`, `encryptedAccessToken`, `encryptedRefreshToken`, `monitoredPaths`, `connectionStatus`, `tokenExpiry`, `connectedAt`.
 - **Indexes**:
   - Compound: `{ userId: 1, provider: 1 }`
 
-### 3. `files`
-- Comprehensive file catalog across all storage sources.
-- **Fields**: `userId`, `storageConnectionId`, `fileName`, `fileExtension`, `fileSize`, `mimeType`, `storageLocation`, `sha256Hash`, `isDuplicate`, `isProtected`, `isExcluded`, `isTrashed`.
+### 3. `local_devices`
+- Registered agent workstations, approved folders, and heartbeat sync telemetry.
+- **Fields**: `id`, `userId`, `deviceName`, `osName`, `hostname`, `agentVersion`, `approvedFolders`, `status` (`ONLINE`, `OFFLINE`, `SCANNING`), `lastHeartbeat`, `lastScanTime`, `registeredAt`.
+- **Indexes**:
+  - Compound: `{ userId: 1, hostname: 1 }`
+  - Single: `lastHeartbeat`
+
+### 4. `files`
+- Comprehensive file catalog across all storage sources with deduplication metadata.
+- **Fields**: `id`, `userId`, `storageLocation`, `storageProvider`, `storageType`, `providerFileId`, `fileName`, `fileExtension`, `fileSize`, `mimeType`, `folderPath`, `sha256Hash`, `isDuplicate`, `isProtected`, `isExcluded`, `isTrashed`, `isDeleted`, `originalFileId`, `lastModified`, `createdAt`, `updatedAt`.
 - **Indexes**:
   - Compound: `{ userId: 1, sha256Hash: 1 }`
   - Compound: `{ userId: 1, isDuplicate: 1 }`
   - Compound: `{ userId: 1, isProtected: 1 }`
-  - Single: `storageLocation`
+  - Compound: `{ userId: 1, storageLocation: 1 }`
+  - Compound: `{ userId: 1, providerFileId: 1 }`
 
-### 4. `scan_jobs`
-- Real-time and historical scan telemetry.
-- **Fields**: `userId`, `targetStorage`, `status` (`PENDING`, `IN_PROGRESS`, `COMPLETED`, `FAILED`, `CANCELLED`), `filesScanned`, `bytesScanned`, `startedAt`, `completedAt`.
+### 5. `scan_jobs`
+- Real-time and historical scan execution telemetry and metrics.
+- **Fields**: `id`, `userId`, `targetStorage`, `targetPath`, `status` (`PENDING`, `IN_PROGRESS`, `COMPLETED`, `FAILED`, `CANCELLED`), `filesScanned`, `bytesScanned`, `duplicatesFound`, `blurryImagesFound`, `inactiveFilesFound`, `largeFilesFound`, `startedAt`, `completedAt`, `createdAt`.
 - **Indexes**:
   - Compound: `{ userId: 1, createdAt: -1 }`
 
-### 5. `duplicate_groups`
+### 6. `duplicate_groups`
 - Exact cryptographic hash collision clusters.
-- **Fields**: `userId`, `sha256Hash`, `fileSize`, `originalFileId`, `duplicateFileIds`, `potentialSavingsBytes`.
+- **Fields**: `id`, `userId`, `sha256Hash`, `fileSize`, `originalFileId`, `duplicateFileIds`, `potentialSavingsBytes`, `createdAt`.
 - **Indexes**:
   - Compound: `{ userId: 1, sha256Hash: 1 }`
 
-### 6. `file_analyses`
-- AI computer-vision image telemetry.
-- **Fields**: `fileId`, `userId`, `laplacianVariance`, `blurScore`, `isBlurry`, `dhash`, `exposureStatus`, `qualityScore`.
+### 7. `file_analyses`
+- AI computer-vision and heuristic image telemetry.
+- **Fields**: `id`, `fileId`, `userId`, `laplacianVariance`, `blurScore`, `isBlurry`, `dhash`, `exposureStatus`, `qualityScore`, `imageResolution`, `imageQuality`, `isDuplicate`, `isInactive`, `detectionReasons`, `analysisTimestamp`, `createdAt`.
 - **Indexes**:
   - Single: `fileId` (Unique)
   - Compound: `{ userId: 1, isBlurry: 1 }`
+  - Compound: `{ userId: 1, createdAt: -1 }`
 
-### 7. `recommendations`
-- Smart optimization recipes.
-- **Fields**: `userId`, `fileId`, `fileName`, `fileType`, `fileSize`, `storageSource`, `junkScore`, `detectionReasons`, `recommendedAction`, `riskLevel`, `analysisDate`, `status` (`ACTIVE`, `ACCEPTED`, `REJECTED`, `EXCLUDED`, `PROTECTED`).
+### 8. `recommendations`
+- Smart optimization recipes with user-decision tracking.
+- **Fields**: `id`, `userId`, `fileId`, `fileName`, `fileType`, `fileSize`, `storageSource`, `junkScore`, `detectionReasons`, `recommendedAction`, `riskLevel`, `analysisDate`, `status` (`ACTIVE`, `ACCEPTED`, `REJECTED`, `EXCLUDED`, `PROTECTED`), `userDecision`, `createdAt`.
 - **Indexes**:
   - Compound: `{ userId: 1, status: 1, riskLevel: 1 }`
+  - Compound: `{ userId: 1, fileId: 1 }`
 
-### 8. `cleanup_history`
-- Audited record of disk alterations.
-- **Fields**: `userId`, `filesCleanedCount`, `failedCount`, `bytesRecovered`, `storageSource`, `cleanedFileSnapshots`, `isRestored`, `restorationSupported`, `createdAt`.
+### 9. `cleanup_history`
+- Audited record of disk alterations with rollback tracking.
+- **Fields**: `id`, `userId`, `filesCleanedCount`, `failedCount`, `bytesRecovered`, `storageSource`, `storageProvider`, `originalLocationReference`, `recoveryStatus`, `errorInformation`, `cleanedFileSnapshots`, `isRestored`, `restorationSupported`, `createdAt`.
 - **Indexes**:
   - Compound: `{ userId: 1, createdAt: -1 }`
 
-### 9. `notifications`
-- In-app notification queue.
+### 10. `notifications`
+- In-app notification queue for asynchronous events.
+- **Fields**: `id`, `userId`, `title`, `message`, `type` (`INFO`, `SUCCESS`, `WARNING`, `ERROR`), `isRead`, `actionLink`, `createdAt`.
 - **Indexes**:
   - Compound: `{ userId: 1, isRead: 1, createdAt: -1 }`
 
-### 10. `audit_logs`
-- Security event tracking for compliance.
+### 11. `user_preferences`
+- User-specific scanning thresholds, alerts, and personalization.
+- **Fields**: `id`, `userId`, `autoScanFrequency` (`DAILY`, `WEEKLY`, `MONTHLY`, `OFF`), `inactivityDaysThreshold`, `largeFileThresholdMb`, `blurVarianceThreshold`, `protectedExtensions`, `emailAlertsEnabled`, `inAppAlertsEnabled`, `theme`, `updatedAt`.
+- **Indexes**:
+  - Single: `userId` (Unique)
+
+### 12. `audit_logs`
+- Security and compliance event tracking.
+- **Fields**: `id`, `userId`, `eventType`, `details`, `clientIp`, `status`, `timestamp`.
 - **Indexes**:
   - Compound: `{ userId: 1, eventType: 1, timestamp: -1 }`
 

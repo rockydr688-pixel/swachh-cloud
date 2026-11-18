@@ -46,7 +46,11 @@ public class FileItem {
 
     private String storageLocation; // Masked path / safe storage location
 
+    private String folderPath; // Monitored parent directory / folder structure
+
     private String storageType; // "local" | "google_drive"
+
+    private String storageProvider; // "LOCAL" | "GOOGLE_DRIVE"
 
     private Instant createdTime;
 
@@ -391,6 +395,25 @@ public class FileItem {
 
     public void setMetadata(Map<String, Object> metadata) {
         this.metadata = metadata;
+    }
+
+    public String getFolderPath() {
+        return folderPath;
+    }
+
+    public void setFolderPath(String folderPath) {
+        this.folderPath = folderPath;
+    }
+
+    public String getStorageProvider() {
+        return storageProvider != null ? storageProvider : (storageType != null ? storageType.toUpperCase() : "LOCAL");
+    }
+
+    public void setStorageProvider(String storageProvider) {
+        this.storageProvider = storageProvider;
+        if (this.storageType == null && storageProvider != null) {
+            this.storageType = storageProvider.toLowerCase();
+        }
     }
 
     public Instant getCreatedAt() {

@@ -85,11 +85,30 @@ The project includes thorough, multi-layer automated test coverage across all su
 
 | Test Suite | Framework | Total Tests | Passed | Status |
 | :--- | :--- | :---: | :---: | :---: |
-| **Spring Boot Backend** | JUnit 5 + Mockito | 54 | 54 | **100% Passed** |
+| **Spring Boot Backend** | JUnit 5 + Mockito + MongoData | 59 | 59 | **100% Passed** |
 | **AI Computer Vision** | Pytest + NumPy | 7 | 7 | **100% Passed** |
-| **React Frontend** | Vitest + Testing Library | 10 | 10 | **100% Passed** |
+| **React Frontend** | Vitest + Testing Library | 11 | 11 | **100% Passed** |
 | **Vite Production Build** | Rollup / Vite | 2117 modules | 2117 | **Build Success** |
 | **Maven Executable JAR** | Spring Boot Repackage | 1 artifact | 1 | **Packaged (`cloudclean-backend-1.0.0-SNAPSHOT.jar`)** |
+
+---
+
+## 🗄️ Database Persistence Architecture (12 Collections)
+
+CloudClean AI enforces 100% persistent data storage in MongoDB (Atlas or local development instances). **No temporary arrays, mock JSON, or browser local storage** are used as substitutes for database state:
+
+1. **`users`**: Tenant accounts, registration dates, BCrypt hashes, preference references.
+2. **`storage_connections`**: Local and Google Drive accounts with AES-256 GCM encrypted tokens.
+3. **`local_devices`**: Local agent machine registration, approved folders, and heartbeat sync telemetry.
+4. **`files`**: Comprehensive multi-storage catalog with deduplication, whitelisting, and trash flags.
+5. **`scan_jobs`**: Real-time and historical scan metrics with atomic state transitions.
+6. **`duplicate_groups`**: SHA-256 collision clusters for zero double-counting deduplication.
+7. **`file_analyses`**: Laplacian variance, blur classification, resolution, and exposure metrics.
+8. **`recommendations`**: AI-driven optimization candidate records with user decision history (`ACCEPTED`, `REJECTED`, `EXCLUDED`, `PROTECTED`).
+9. **`cleanup_history`**: Audit trail of every disk alteration, bytes recovered, and 1-click restore pointers.
+10. **`notifications`**: User alert queue for scans, warnings, and system events.
+11. **`user_preferences`**: Configurable thresholds (inactivity days, file size, blur variance, protected extensions).
+12. **`audit_logs`**: Tamper-evident security and administrative event stream.
 
 ---
 

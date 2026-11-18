@@ -68,6 +68,8 @@ public class Recommendation {
 
     private String riskLevel = "medium"; // "low" | "medium" | "high"
 
+    private String userDecision = "NONE"; // "NONE" | "ACCEPTED" | "REJECTED" | "EXCLUDED" | "PROTECTED"
+
     private Instant analysisDate = Instant.now();
 
     private boolean isProtected = false;
@@ -296,6 +298,14 @@ public class Recommendation {
 
     public void setExcluded(boolean excluded) {
         isExcluded = excluded;
+    }
+
+    public String getUserDecision() {
+        return userDecision != null ? userDecision : "NONE";
+    }
+
+    public void setUserDecision(String userDecision) {
+        this.userDecision = userDecision;
     }
 
     public Instant getCreatedAt() {
