@@ -78,6 +78,9 @@ class BlurDetector:
         """
         Decodes raw bytes and returns comprehensive blur analysis.
         """
+        if not image_bytes or len(image_bytes) == 0:
+            raise ValueError("Could not decode image bytes into valid picture array: empty buffer")
+
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img is None:

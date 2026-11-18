@@ -281,6 +281,7 @@ export const CleanupRecommendations = () => {
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
+              aria-label="Select All"
               checked={selectedIds.size === recommendations.length && recommendations.length > 0}
               onChange={handleSelectAll}
               className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"

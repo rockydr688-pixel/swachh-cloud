@@ -124,6 +124,9 @@ class ImageAnalyzer:
         """
         Executes end-to-end multi-dimensional image evaluation.
         """
+        if not image_bytes or len(image_bytes) == 0:
+            raise ValueError("Unable to decode input image stream: empty buffer")
+
         nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
         if img is None:

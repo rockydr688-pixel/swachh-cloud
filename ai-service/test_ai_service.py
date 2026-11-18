@@ -115,3 +115,23 @@ def test_perceptual_hashes(detectors):
     h3 = int(res3["perceptual_hashes"]["dhash"], 16)
     hamming_dist = bin(h1 ^ h3).count('1')
     assert hamming_dist <= 5, f"Hamming distance {hamming_dist} should be <= 5 for similar images"
+
+def test_invalid_image_handling(detectors):
+    bd, ia = detectors
+    corrupt_bytes = b"NOT_A_VALID_IMAGE_FORMAT_RANDOM_CORRUPT_BYTES_123456789"
+    empty_bytes = b""
+
+    # BlurDetector must raise ValueError on corrupt/empty bytes
+    with pytest.raises(ValueError, match="Could not decode"):
+        bd.analyze_image_bytes(corrupt_bytes)
+
+    with pytest.raises(ValueError, match="Could not decode"):
+        bd.analyze_image_bytes(empty_bytes)
+
+    # ImageAnalyzer must raise ValueError on corrupt/empty bytes
+    with pytest.raises(ValueError, match="Unable to decode"):
+        ia.full_analysis(corrupt_bytes)
+
+    with pytest.raises(ValueError, match="Unable to decode"):
+        ia.full_analysis(empty_bytes)
+
