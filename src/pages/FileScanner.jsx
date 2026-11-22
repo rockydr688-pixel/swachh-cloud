@@ -50,14 +50,14 @@ export const FileScanner = () => {
   const [lastFinishedScan, setLastFinishedScan] = useState(null);
 
   const selectedConn = connections.find(
-    (c) => c.name === selectedTarget || c.type === (selectedTarget.toLowerCase().includes('google') ? 'google_drive' : 'local')
-  );
+    (c) => c.id === selectedTarget || c.name === selectedTarget
+  ) || connections[0];
 
   const handleStartScan = async () => {
-    if (selectedConn && selectedConn.type === 'google_drive' && selectedConn.status !== 'connected') {
+    if (selectedConn && selectedConn.type !== 'local' && selectedConn.status !== 'connected') {
       addToast({
-        title: 'Google Drive Not Connected',
-        message: 'Please connect and authorize Google Drive in Storage Connections first.',
+        title: `${selectedConn.name} Not Connected`,
+        message: `Please connect and authorize ${selectedConn.name} in Storage Connections first.`,
         type: 'warning',
       });
       return;
@@ -65,8 +65,9 @@ export const FileScanner = () => {
 
     try {
       await runScan({
-        target: selectedTarget,
-        storageType: selectedTarget.toLowerCase().includes('google') ? 'google_drive' : 'local',
+        target: selectedConn?.name || selectedTarget,
+        storageType: selectedConn?.type || 'local',
+        storageConnectionId: selectedConn?.id,
         incremental,
         checkDuplicates: enableDuplicates,
         checkBlurry: enableBlurry,
@@ -75,7 +76,7 @@ export const FileScanner = () => {
       });
       addToast({
         title: 'Scan Initiated',
-        message: `Asynchronous heuristic scan started on ${selectedTarget}.`,
+        message: `Asynchronous heuristic scan started on ${selectedConn?.name || selectedTarget}.`,
         type: 'info',
       });
     } catch (err) {
@@ -184,7 +185,7 @@ export const FileScanner = () => {
             />
 
             {/* Real-time counters */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
+            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 pt-1">
               <div className="p-2.5 bg-white/80 rounded-lg border border-slate-200/60 text-xs">
                 <span className="text-slate-400 block text-[11px]">Discovered Files</span>
                 <span className="text-sm font-bold text-slate-800">
@@ -198,14 +199,26 @@ export const FileScanner = () => {
                 </span>
               </div>
               <div className="p-2.5 bg-white/80 rounded-lg border border-slate-200/60 text-xs">
-                <span className="text-slate-400 block text-[11px]">Failed / Inaccessible</span>
+                <span className="text-slate-400 block text-[11px]">Flagged Junk</span>
+                <span className="text-sm font-bold text-indigo-600">
+                  {formatNumber(activeScan.flaggedFilesCount || 0)}
+                </span>
+              </div>
+              <div className="p-2.5 bg-white/80 rounded-lg border border-slate-200/60 text-xs">
+                <span className="text-slate-400 block text-[11px]">Est. Recoverable</span>
+                <span className="text-sm font-bold text-emerald-600">
+                  {formatBytes(activeScan.potentialSavingsBytes || 0)}
+                </span>
+              </div>
+              <div className="p-2.5 bg-white/80 rounded-lg border border-slate-200/60 text-xs">
+                <span className="text-slate-400 block text-[11px]">Inaccessible</span>
                 <span className={`text-sm font-bold ${activeScan.failedFilesCount > 0 ? 'text-amber-600' : 'text-slate-800'}`}>
                   {activeScan.failedFilesCount || 0}
                 </span>
               </div>
               <div className="p-2.5 bg-white/80 rounded-lg border border-slate-200/60 text-xs">
                 <span className="text-slate-400 block text-[11px]">Mode</span>
-                <span className="text-sm font-bold text-indigo-600">
+                <span className="text-sm font-bold text-slate-700">
                   {incremental ? 'Incremental' : 'Full Traversal'}
                 </span>
               </div>

@@ -11,6 +11,8 @@ import java.util.Optional;
 public interface StorageConnectionRepository extends MongoRepository<StorageConnection, String> {
     List<StorageConnection> findByUserId(String userId);
     Optional<StorageConnection> findByIdAndUserId(String id, String userId);
+    List<StorageConnection> findAllByUserIdAndType(String userId, String type);
     Optional<StorageConnection> findByUserIdAndType(String userId, String type);
+    Optional<StorageConnection> findByUserIdAndTypeAndAccountEmail(String userId, String type, String accountEmail);
 }
 

@@ -117,6 +117,30 @@ public class CleanupService {
         List<Map<String, Object>> snapshotList = new ArrayList<>();
         Instant now = Instant.now();
 
+        // Duplicate group safety: Never delete all copies of a duplicate group
+        Map<String, List<FileItem>> duplicatesByHash = new HashMap<>();
+        for (FileItem f : targetFiles) {
+            if (f.getHash() != null && !f.getHash().isBlank()) {
+                duplicatesByHash.computeIfAbsent(f.getHash(), k -> new ArrayList<>()).add(f);
+            }
+        }
+        Set<String> mustPreserveFileIds = new HashSet<>();
+        for (Map.Entry<String, List<FileItem>> entry : duplicatesByHash.entrySet()) {
+            String hash = entry.getKey();
+            List<FileItem> selectedCopies = entry.getValue();
+            long totalActiveCopies = fileItemRepository.findByUserIdAndIsDeletedFalse(userId).stream()
+                    .filter(f -> hash.equalsIgnoreCase(f.getHash()))
+                    .count();
+            if (totalActiveCopies > 0 && selectedCopies.size() >= totalActiveCopies) {
+                FileItem preserved = selectedCopies.stream()
+                        .filter(f -> "Keep Original".equalsIgnoreCase(f.getRecommendationStatus()))
+                        .findFirst()
+                        .orElse(selectedCopies.get(0));
+                mustPreserveFileIds.add(preserved.getId());
+                log.info("Duplicate Safety Net: Preserving master copy {} of hash {}", preserved.getName(), hash);
+            }
+        }
+
         for (FileItem file : targetFiles) {
             // Ownership & identity re-verification
             if (!userId.equals(file.getUserId())) {
@@ -129,6 +153,12 @@ public class CleanupService {
             // Skip protected/whitelisted files
             if (file.isProtected()) {
                 log.info("Skipping protected file: {}", file.getName());
+                continue;
+            }
+
+            // Skip preserved master copy of duplicate group
+            if (mustPreserveFileIds.contains(file.getId())) {
+                log.info("Skipping cleanup of preserved master duplicate copy: {}", file.getName());
                 continue;
             }
 
@@ -312,12 +342,6 @@ public class CleanupService {
     public PageResponse<CleanupHistoryResponse> getCleanupHistory(String userId, int page, int size) {
         Pageable pageable = PageRequest.of(Math.max(page - 1, 0), size, Sort.by(Sort.Direction.DESC, "timestamp"));
         Page<CleanupHistory> historyPage = cleanupHistoryRepository.findByUserIdOrderByTimestampDesc(userId, pageable);
-
-        if (historyPage.isEmpty()) {
-            seedDefaultHistoryIfEmpty(userId);
-            historyPage = cleanupHistoryRepository.findByUserIdOrderByTimestampDesc(userId, pageable);
-        }
-
         return PageResponse.of(historyPage.map(CleanupHistoryResponse::new));
     }
 

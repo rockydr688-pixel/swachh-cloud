@@ -8,8 +8,10 @@ import com.cloudclean.util.SecurityUtils;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 @RestController
 @RequestMapping({"/api/scans", "/api/v1/scans"})
@@ -24,7 +26,7 @@ public class ScanController {
     }
 
     @PostMapping
-    @Operation(summary = "Trigger storage scan", description = "Launches asynchronous multi-threaded heuristic scanning across filesystems")
+    @Operation(summary = "Trigger storage scan", description = "Launches asynchronous multi-threaded heuristic scanning across filesystems and cloud providers")
     public ResponseEntity<ApiResponse<ScanJobResponse>> triggerScan(@RequestBody(required = false) ScanRequest request) {
         String userId = SecurityUtils.getCurrentUserId();
         if (request == null) {
@@ -52,6 +54,13 @@ public class ScanController {
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 
+    @GetMapping(value = "/{id}/progress/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @Operation(summary = "Stream real-time scan progress (SSE)", description = "Establishes Server-Sent Events stream delivering live metrics, discovered files, and stage updates")
+    public SseEmitter streamScanProgress(@PathVariable String id) {
+        String userId = SecurityUtils.getCurrentUserId();
+        return scanService.subscribeToScanProgress(id, userId);
+    }
+
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Cancel active scan job", description = "Aborts an in-progress scan job")
     public ResponseEntity<ApiResponse<ScanJobResponse>> cancelScan(@PathVariable String id) {
@@ -60,4 +69,3 @@ public class ScanController {
         return ResponseEntity.ok(ApiResponse.success("Scan job cancelled successfully", response));
     }
 }
-

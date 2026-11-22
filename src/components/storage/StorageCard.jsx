@@ -20,6 +20,8 @@ import {
   Play,
   ShieldCheck,
   Unlink,
+  Layers,
+  Box,
 } from 'lucide-react';
 import ConnectModal from './ConnectModal';
 
@@ -28,7 +30,11 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
   const { disconnectStorage, refreshData } = useStorage();
   const { addToast } = useToast();
 
-  const isLocal = connection.type === 'local';
+  const type = connection.type ? connection.type.toLowerCase() : 'local';
+  const isLocal = type === 'local';
+  const isGoogle = type === 'google_drive';
+  const isOneDrive = type === 'onedrive';
+  const isDropbox = type === 'dropbox';
   const isConnected = connection.status === 'connected';
 
   const usedBytes = connection.usedBytes ?? connection.totalUsedBytes ?? 0;
@@ -55,6 +61,24 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
     }
   };
 
+  const getProviderIcon = () => {
+    if (isLocal) return <HardDrive className="w-6 h-6" />;
+    if (isGoogle) return <Cloud className="w-6 h-6" />;
+    if (isOneDrive) return <Layers className="w-6 h-6" />;
+    if (isDropbox) return <Box className="w-6 h-6" />;
+    return <Cloud className="w-6 h-6" />;
+  };
+
+  const getProviderTheme = () => {
+    if (isLocal) return { bg: 'bg-blue-50 text-blue-600 border-blue-100', bar: 'blue', label: 'Local Daemon & Agent IPC' };
+    if (isGoogle) return { bg: 'bg-amber-50 text-amber-600 border-amber-100', bar: 'amber', label: 'Google Workspace Cloud Drive' };
+    if (isOneDrive) return { bg: 'bg-sky-50 text-sky-600 border-sky-100', bar: 'blue', label: 'Microsoft OneDrive Cloud Storage' };
+    if (isDropbox) return { bg: 'bg-indigo-50 text-indigo-600 border-indigo-100', bar: 'indigo', label: 'Dropbox Cloud Repository' };
+    return { bg: 'bg-violet-50 text-violet-600 border-violet-100', bar: 'violet', label: 'Cloud Storage' };
+  };
+
+  const theme = getProviderTheme();
+
   return (
     <>
       <Card
@@ -65,21 +89,15 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
           {/* Card Header */}
           <div className="flex items-start justify-between gap-4 mb-4">
             <div className="flex items-center gap-3">
-              <div
-                className={`p-3 rounded-xl border ${
-                  isLocal
-                    ? 'bg-blue-50 text-blue-600 border-blue-100'
-                    : 'bg-violet-50 text-violet-600 border-violet-100'
-                }`}
-              >
-                {isLocal ? <HardDrive className="w-6 h-6" /> : <Cloud className="w-6 h-6" />}
+              <div className={`p-3 rounded-xl border ${theme.bg}`}>
+                {getProviderIcon()}
               </div>
               <div>
                 <h3 className="text-base font-bold text-slate-900 tracking-tight">
                   {connection.name}
                 </h3>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  {isLocal ? 'Local Daemon & Agent IPC' : 'Google Workspace Cloud Drive'}
+                  {theme.label}
                 </p>
               </div>
             </div>
@@ -98,7 +116,7 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
 
           {/* Description */}
           <p className="text-xs text-slate-600 leading-relaxed mb-4">
-            {connection.description}
+            {connection.description || 'Cloud repository integrated with automated junk detection and trash retention.'}
           </p>
 
           {/* Storage Capacity / Usage Meter */}
@@ -113,7 +131,7 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
               <ProgressBar
                 value={usedBytes}
                 max={capacityBytes}
-                color={isLocal ? 'blue' : 'violet'}
+                color={theme.bar}
                 size="sm"
               />
               <div className="flex items-center justify-between text-[11px] text-slate-400 pt-0.5">
@@ -158,7 +176,7 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
               </div>
             )}
 
-            {/* Google Drive Specific: OAuth State and Connected Account */}
+            {/* Cloud Provider Specific: OAuth State and Connected Account */}
             {!isLocal && (
               <div className="space-y-2 pt-1">
                 <div className="flex items-center justify-between">
@@ -181,14 +199,14 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
 
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400 font-medium">Connected Account:</span>
-                  <span className="font-mono text-[11px] text-slate-600 font-medium">
-                    {connection.accountEmail || (isConnected ? 'user@workspace.google.com' : 'None (Requires OAuth)')}
+                  <span className="font-mono text-[11px] text-slate-600 font-medium truncate max-w-[220px]">
+                    {connection.accountEmail || (isConnected ? 'Account Active' : 'None (Requires OAuth)')}
                   </span>
                 </div>
 
                 {!isConnected && (
                   <div className="p-2.5 bg-amber-50/80 rounded-lg border border-amber-200/70 text-[11px] text-amber-800 leading-tight">
-                    Google Drive connects via OAuth 2.0. Click Connect below to approve read-only metadata access.
+                    Connect via official OAuth 2.0 to scan actual files and retrieve real metadata.
                   </div>
                 )}
               </div>
@@ -212,7 +230,7 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
                 variant="primary"
                 size="sm"
                 icon={Play}
-                onClick={() => onTriggerScan && onTriggerScan(connection.name)}
+                onClick={() => onTriggerScan && onTriggerScan(connection.name, connection.type, connection.id)}
                 className="bg-indigo-600 hover:bg-indigo-700"
               >
                 Scan Now
@@ -235,8 +253,8 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
                     variant="primary"
                     size="sm"
                     icon={Play}
-                    onClick={() => onTriggerScan && onTriggerScan(connection.name)}
-                    className="bg-violet-600 hover:bg-violet-700"
+                    onClick={() => onTriggerScan && onTriggerScan(connection.name, connection.type, connection.id)}
+                    className="bg-indigo-600 hover:bg-indigo-700"
                   >
                     Scan Drive
                   </Button>
@@ -249,7 +267,7 @@ export const StorageCard = ({ connection, onTriggerScan }) => {
                   onClick={() => setModalOpen(true)}
                   className="w-full justify-center"
                 >
-                  Connect Google Drive (OAuth)
+                  Connect {connection.name} (OAuth)
                 </Button>
               )}
             </>

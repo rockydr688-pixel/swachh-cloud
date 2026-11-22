@@ -76,6 +76,51 @@ All responses conform to the standard `ApiResponse<T>` envelope:
 - **Auth**: Bearer JWT
 - **Response**: `200 OK` (Array of connected drives, quotas, and sync states)
 
+### Provider Status Catalog
+- **Method / Route**: `GET /api/storage/providers/status`
+- **Auth**: Bearer JWT
+- **Description**: Returns configuration readiness, live connection counts, setup guides, and generated OAuth authorization URLs for Google Drive, OneDrive, Dropbox, and Local Storage.
+- **Response**: `200 OK`
+  ```json
+  {
+    "success": true,
+    "message": "Storage provider status retrieved successfully",
+    "data": [
+      {
+        "provider": "google_drive",
+        "displayName": "Google Drive",
+        "configured": true,
+        "authUrl": "https://accounts.google.com/o/oauth2/v2/auth?...",
+        "connectedAccountsCount": 1,
+        "setupInstructions": "Configured and active."
+      },
+      {
+        "provider": "onedrive",
+        "displayName": "Microsoft OneDrive",
+        "configured": false,
+        "authUrl": null,
+        "connectedAccountsCount": 0,
+        "setupInstructions": "Missing ONEDRIVE_CLIENT_ID or ONEDRIVE_CLIENT_SECRET in .env."
+      }
+    ]
+  }
+  ```
+
+### Universal Cloud Account Connection
+- **Method / Route**: `POST /api/storage/cloud/connect`
+- **Auth**: Bearer JWT
+- **Description**: Universal OAuth 2.0 authorization code exchange supporting Google Drive, Microsoft OneDrive, and Dropbox. Tokens are encrypted using AES-256 GCM before database storage.
+- **Request Body**:
+  ```json
+  {
+    "provider": "onedrive",
+    "authCode": "M.R3_BAY.0a1b2c3d...",
+    "redirectUri": "http://localhost:3000/oauth/callback",
+    "accountName": "Work OneDrive"
+  }
+  ```
+- **Response**: `200 OK` (Returns the newly created StorageConnection record)
+
 ### Register Local Folders
 - **Method / Route**: `POST /api/storage/local/register`
 - **Auth**: Bearer JWT
@@ -90,7 +135,7 @@ All responses conform to the standard `ApiResponse<T>` envelope:
   }
   ```
 
-### Connect Google Drive
+### Connect Google Drive (Legacy)
 - **Method / Route**: `POST /api/storage/google/connect`
 - **Auth**: Bearer JWT
 - **Request Body**:
@@ -138,6 +183,34 @@ All responses conform to the standard `ApiResponse<T>` envelope:
 - **Method / Route**: `GET /api/scans/{id}`
 - **Auth**: Bearer JWT
 - **Response**: `200 OK` (includes `status`, `progress`, `filesScanned`, `bytesScanned`)
+
+### Live Scan Progress Stream (Server-Sent Events)
+- **Method / Route**: `GET /api/scans/{id}/progress/stream`
+- **Auth**: Bearer JWT
+- **Accept**: `text/event-stream`
+- **Description**: Subscribes to real-time Server-Sent Events (SSE) emitting progress snapshots across all scanning passes.
+- **Event Data Structure**:
+  ```json
+  {
+    "scanId": "scan-202",
+    "phase": "HASHING_DUPLICATES",
+    "message": "Calculated hashes for 150/320 duplicate candidate files...",
+    "filesDiscovered": 1540,
+    "filesProcessed": 150,
+    "bytesProcessed": 450000000,
+    "percentComplete": 45,
+    "status": "IN_PROGRESS",
+    "timestamp": 1731928500000
+  }
+  ```
+- **Lifecycle Phases**:
+  - `DISCOVERING_FILES`: Metadata crawl across local folders or cloud API tree pagination.
+  - `HASHING_DUPLICATES`: Targeted streaming SHA-256 computation for potential duplicates.
+  - `AI_IMAGE_ANALYSIS`: OpenCV blur, low-light, and resolution audit on photos.
+  - `LARGE_FILE_AUDIT`: Heavy file categorization and footprint analysis.
+  - `INACTIVE_FILE_AUDIT`: File staleness checks against retention thresholds.
+  - `JUNK_SCORING`: Multi-factor heuristics score computation.
+  - `COMPLETED`: Persisted audit results in MongoDB.
 
 ### Cancel Scan
 - **Method / Route**: `POST /api/scans/{id}/cancel`

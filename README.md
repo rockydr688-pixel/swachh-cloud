@@ -1,17 +1,19 @@
-# CloudClean AI (swachh-cloud) – Intelligent Cloud & Local Storage Optimization Platform
+# CloudClean AI (swachh-cloud) – Intelligent Multi-Cloud & Local Storage Optimization Platform
 > **Enterprise Full-Stack Architecture: React 18 + Vite, Spring Boot 3.3.5 (Java 21), MongoDB 7.0 & Python FastAPI (OpenCV AI)**
 
-CloudClean AI is a production-grade, full-stack SaaS platform engineered to analyze, detect, and safely optimize storage waste across local drives and cloud repositories (Google Drive). It leverages cryptographic deduplication (SHA-256), computer-vision heuristics (Laplacian variance, exposure diagnostics, perceptual dHash/aHash), user whitelisting, and a strict 9-step user-confirmed cleanup workflow.
+CloudClean AI is a production-grade, full-stack SaaS platform engineered to analyze, detect, and safely optimize storage waste across local drives and enterprise cloud repositories (**Google Drive**, **Microsoft OneDrive**, and **Dropbox**). It leverages cryptographic deduplication (SHA-256), computer-vision heuristics (Laplacian variance, exposure diagnostics, perceptual dHash/aHash), live Server-Sent Events (SSE) streaming, user whitelisting, a duplicate safety net preserving master original files, and a strict 9-step user-confirmed cleanup workflow.
 
 ---
 
 ## 🌟 Key Features & Capabilities
 
-- **Intelligent Deduplication**: Exact cryptographic deduplication (SHA-256) with smart original selection and zero double-counting.
+- **Real Multi-Cloud Integration**: Native adapters for **Google Drive (Drive API v3)**, **Microsoft OneDrive (Microsoft Graph API v1.0)**, **Dropbox (v2 API)**, and **Local Computer Storage** with multi-account support.
+- **Real-Time Scanning Progress (SSE)**: Server-Sent Events stream live progress across 7 scanning phases (`DISCOVERING_FILES`, `HASHING_DUPLICATES`, `AI_IMAGE_ANALYSIS`, `LARGE_FILE_AUDIT`, `INACTIVE_FILE_AUDIT`, `JUNK_SCORING`, `COMPLETED`) with actual file counters and zero mock numbers.
+- **Intelligent Deduplication & Safety Net**: Exact cryptographic deduplication (SHA-256) with smart original selection and an automated duplicate safety net that strictly prevents the deletion of all copies in a duplicate cluster.
 - **AI Image Quality Diagnostics**: Standalone Python FastAPI microservice utilizing OpenCV for variance of Laplacian blur detection, resolution auditing, luminance histogram evaluation, and perceptual image hashing (`dHash`/`aHash`).
 - **Inactive & Large File Pruning**: Configurable threshold classification (30d, 90d, 180d, 365d) and multi-gigabyte bloat detection.
 - **Smart Recommendation Engine**: Normalized junk scores (0–100), risk levels (`LOW`, `MEDIUM`, `HIGH`), and user protection whitelisting (`isProtected = true`).
-- **Safe 9-Step Cleanup Center**: Enforces explicit modal confirmation (`confirmed: true`), computes exact pre-deletion impact, and moves files to provider trash (`.cloudclean_trash` directory sandbox / Google Drive Trash) rather than permanent deletion.
+- **Safe Multi-Cloud Cleanup Center**: Enforces explicit modal confirmation (`confirmed: true`), computes exact pre-deletion impact, and moves files to provider trash (`.cloudclean_trash` directory sandbox, Google Drive Trash, OneDrive Recycle Bin, Dropbox retention trash) rather than permanent deletion.
 - **1-Click File Restoration**: Roll back any executed cleanup directly from the audit history table.
 - **Zero Double-Counting Analytics**: Storage metrics computed strictly from distinct database records, ensuring overlapping signals never inflate recoverable space.
 - **Streaming Reports & CSV Export**: Real-time storage distribution reports and RFC-4180 compliant CSV exports for file inventory and cleanup audit trails.
@@ -39,11 +41,11 @@ cloudclean-ai/
 │       │   ├── notification/      # Notification entity, Service, Controller
 │       │   ├── recommendation/    # Recommendation entity, Service, Controller
 │       │   ├── report/            # ReportService & RFC-4180 CSV export
-│       │   ├── scanner/           # ScanJob entity, Async ScanService, Controller
+│       │   ├── scanner/           # ScanJob entity, Async ScanService with SSE, Controller
 │       │   ├── storage/           # StorageProvider abstraction, LocalStorageAdapter,
-│       │   │                      # GoogleDriveAdapter, LocalAgentScanner
-│       │   └── util/              # EncryptionUtils, FileHashUtils, ImageBlurDetector
-│       └── test/                  # 54 comprehensive unit & integration tests
+│       │   │                      # GoogleDriveAdapter, OneDriveAdapter, DropboxAdapter
+│       │   └── util/              # EncryptionUtils (AES-256 GCM), FileHashUtils
+│       └── test/                  # 68 comprehensive unit & integration tests
 ├── ai-service/                    # Python 3.11 FastAPI Computer Vision Microservice
 │   ├── Dockerfile                 # Container with OpenCV Headless
 │   ├── requirements.txt           # FastAPI, OpenCV, NumPy, Pillow, Pytest
@@ -53,11 +55,11 @@ cloudclean-ai/
 │   │   └── image_analyzer.py      # Resolution, exposure, dHash/aHash heuristics
 │   └── test_ai_service.py         # 7 Pytest verification test cases
 ├── src/                           # React 18 Frontend with Vite & Tailwind CSS
-│   ├── components/                # Modular UI kit, Charts, Modals, Navbar, FileTable
-│   ├── context/                   # AuthContext, StorageContext
+│   ├── components/                # Modular UI kit, Charts, Multi-Cloud Modals, Navbar
+│   ├── context/                   # AuthContext, StorageContext, ToastContext
 │   ├── pages/                     # 13 dedicated SaaS page views
 │   ├── services/                  # apiClient, fileService, storageService, scanService
-│   └── test/                      # 10 Vitest + React Testing Library suites
+│   └── test/                      # 14 Vitest + React Testing Library suites
 ├── docker-compose.yml             # Orchestration for MongoDB, AI service, Backend, Frontend
 ├── Dockerfile                     # Multi-stage Nginx production container for React
 ├── nginx.conf                     # Nginx reverse proxy configuration
@@ -71,11 +73,12 @@ cloudclean-ai/
 
 | Layer | Technologies |
 | :--- | :--- |
-| **Frontend** | React 18, Vite 6, Tailwind CSS, React Router v7, Lucide Icons, Recharts, Axios, Vitest, Testing Library |
-| **Core Backend** | Java 21 LTS, Spring Boot 3.3.5, Spring Security, Spring Data MongoDB, Spring Web, Springdoc OpenAPI 3 |
+| **Frontend** | React 18, Vite 6, Tailwind CSS, React Router v7, Lucide Icons, Recharts, Axios, EventSource (SSE), Vitest, Testing Library |
+| **Core Backend** | Java 21 LTS, Spring Boot 3.3.5, Spring Security, Spring Data MongoDB, Spring Web (SseEmitter), Springdoc OpenAPI 3 |
 | **AI Microservice** | Python 3.11, FastAPI, OpenCV (`opencv-python-headless`), NumPy, Pillow, Pytest |
 | **Database** | MongoDB 7.0 (with compound indexes, tenant isolation, and document auditing) |
-| **DevOps & Cloud** | Docker, Docker Compose, Nginx, Google Drive API v3 (OAuth 2.0) |
+| **Cloud Providers** | Google Drive API v3, Microsoft Graph API v1.0 (OneDrive), Dropbox API v2, Local Filesystem Daemon |
+| **DevOps & Containers** | Docker, Docker Compose, Nginx Reverse Proxy |
 
 ---
 
@@ -85,9 +88,9 @@ The project includes thorough, multi-layer automated test coverage across all su
 
 | Test Suite | Framework | Total Tests | Passed | Status |
 | :--- | :--- | :---: | :---: | :---: |
-| **Spring Boot Backend** | JUnit 5 + Mockito + MongoData | 59 | 59 | **100% Passed** |
+| **Spring Boot Backend** | JUnit 5 + Mockito + MongoData | 68 | 68 | **100% Passed** |
 | **AI Computer Vision** | Pytest + NumPy | 7 | 7 | **100% Passed** |
-| **React Frontend** | Vitest + Testing Library | 11 | 11 | **100% Passed** |
+| **React Frontend** | Vitest + Testing Library | 14 | 14 | **100% Passed** |
 | **Vite Production Build** | Rollup / Vite | 2117 modules | 2117 | **Build Success** |
 | **Maven Executable JAR** | Spring Boot Repackage | 1 artifact | 1 | **Packaged (`cloudclean-backend-1.0.0-SNAPSHOT.jar`)** |
 

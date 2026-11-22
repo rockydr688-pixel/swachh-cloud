@@ -73,6 +73,35 @@ export const scanService = {
     return null;
   },
 
+  subscribeScanProgress(scanId, onProgress, onComplete, onError) {
+    const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
+    const url = `${baseUrl}/scans/${scanId}/progress/stream`;
+
+    try {
+      const eventSource = new EventSource(url);
+      eventSource.addEventListener('scan-progress', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (onProgress) onProgress(data);
+          if (data.status === 'completed' || data.status === 'cancelled' || data.status === 'failed') {
+            eventSource.close();
+            if (onComplete) onComplete(data);
+          }
+        } catch (err) {
+          console.error('Error parsing SSE scan event:', err);
+        }
+      });
+      eventSource.onerror = (err) => {
+        if (onError) onError(err);
+        eventSource.close();
+      };
+      return () => eventSource.close();
+    } catch (e) {
+      console.warn('EventSource initialization failed, fallback to polling:', e);
+      return null;
+    }
+  },
+
   async cancelScan(scanId) {
     try {
       const res = await apiClient.post(`/scans/${scanId}/cancel`);

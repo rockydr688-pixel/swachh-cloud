@@ -66,10 +66,18 @@ public class GoogleOAuthService {
             String name
     ) {}
 
+    public boolean isConfigured() {
+        return clientId != null && !clientId.isBlank() && !clientId.startsWith("mock")
+                && clientSecret != null && !clientSecret.isBlank() && !clientSecret.startsWith("mock");
+    }
+
     /**
      * Builds the Google OAuth 2.0 authorization consent screen URL.
      */
     public String buildAuthorizationUrl(String state, String redirectUri) {
+        if (!isConfigured()) {
+            return null;
+        }
         String effectiveRedirect = (redirectUri != null && !redirectUri.isBlank()) ? redirectUri : defaultRedirectUri;
         String scopesJoined = String.join(" ", OAUTH_SCOPES);
 

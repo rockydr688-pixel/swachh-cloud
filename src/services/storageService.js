@@ -2,8 +2,6 @@ import apiClient from './api';
 import {
   mockStorageStats,
   mockStorageConnections,
-  mockStorageUsageHistory,
-  mockCategoryDistribution,
 } from '../data/mockData';
 
 export const storageService = {
@@ -31,6 +29,25 @@ export const storageService = {
     return { success: true, data: mockStorageConnections, isSample: true };
   },
 
+  async getProviderStatuses(redirectUri) {
+    try {
+      const res = await apiClient.get('/storage/providers/status', {
+        params: { redirectUri: redirectUri || window.location.origin + '/oauth/callback' },
+      });
+      if (res.data?.success && res.data?.data) {
+        return res.data.data;
+      }
+    } catch (e) {
+      console.warn('Could not query provider statuses from backend:', e);
+    }
+    return [
+      { providerKey: 'google_drive', displayName: 'Google Drive', configured: false, supported: true, setupInstructions: 'Add GOOGLE_CLIENT_ID to .env' },
+      { providerKey: 'onedrive', displayName: 'Microsoft OneDrive', configured: false, supported: true, setupInstructions: 'Add ONEDRIVE_CLIENT_ID to .env' },
+      { providerKey: 'dropbox', displayName: 'Dropbox', configured: false, supported: true, setupInstructions: 'Add DROPBOX_CLIENT_ID to .env' },
+      { providerKey: 'local', displayName: 'Local Computer', configured: true, supported: true },
+    ];
+  },
+
   async getGoogleAuthUrl(redirectUri) {
     try {
       const res = await apiClient.get('/storage/google/auth-url', {
@@ -42,7 +59,7 @@ export const storageService = {
     } catch (e) {
       console.warn('Could not fetch backend Google OAuth authorization URL:', e);
     }
-    return 'https://accounts.google.com/o/oauth2/v2/auth?scope=https://www.googleapis.com/auth/drive.metadata.readonly';
+    return null;
   },
 
   async validateLocalPath(path) {
@@ -59,19 +76,22 @@ export const storageService = {
 
   async connectStorage(type, payload) {
     try {
-      if (type === 'google_drive') {
-        const res = await apiClient.post('/storage/google/connect', {
-          authCode: payload.authCode,
-          redirectUri: payload.redirectUri || window.location.origin + '/oauth/callback',
-        });
-        return res.data;
-      } else {
+      if (type === 'local') {
         const paths = Array.isArray(payload.paths)
           ? payload.paths
           : (payload.folderPath ? [payload.folderPath] : []);
         const res = await apiClient.post('/storage/local/register', {
           name: payload.name || 'Local Computer',
           paths,
+        });
+        return res.data;
+      } else {
+        // Universal cloud connect endpoint for Google Drive, OneDrive, and Dropbox
+        const res = await apiClient.post('/storage/cloud/connect', {
+          provider: type,
+          authCode: payload.authCode,
+          redirectUri: payload.redirectUri || window.location.origin + '/oauth/callback',
+          accountName: payload.accountName,
         });
         return res.data;
       }

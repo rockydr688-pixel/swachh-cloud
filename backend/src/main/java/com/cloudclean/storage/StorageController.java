@@ -1,7 +1,9 @@
 package com.cloudclean.storage;
 
 import com.cloudclean.dto.ApiResponse;
+import com.cloudclean.dto.CloudConnectRequest;
 import com.cloudclean.dto.GoogleConnectRequest;
+import com.cloudclean.dto.ProviderStatusResponse;
 import com.cloudclean.dto.StorageConnectionRequest;
 import com.cloudclean.dto.StorageConnectionResponse;
 import com.cloudclean.util.SecurityUtils;
@@ -18,7 +20,7 @@ import java.util.Map;
 @RestController
 @RequestMapping({"/api/storage", "/api/v1/storage"})
 @SecurityRequirement(name = "bearerAuth")
-@Tag(name = "Storage Connections", description = "Endpoints to register local directories and connect Google Drive storage")
+@Tag(name = "Storage Connections", description = "Endpoints to register local directories and connect Google Drive, OneDrive, and Dropbox storage")
 public class StorageController {
 
     private final StorageConnectionService storageConnectionService;
@@ -28,11 +30,19 @@ public class StorageController {
     }
 
     @GetMapping
-    @Operation(summary = "List all storage connections", description = "Returns live status and quota of local computer daemon and Google Drive adapters for current user")
+    @Operation(summary = "List all storage connections", description = "Returns live status and quota of local computer daemon, Google Drive, OneDrive, and Dropbox adapters for current user")
     public ResponseEntity<ApiResponse<List<StorageConnectionResponse>>> getStorageConnections() {
         String userId = SecurityUtils.getCurrentUserId();
         List<StorageConnectionResponse> connections = storageConnectionService.getUserConnections(userId);
         return ResponseEntity.ok(ApiResponse.success(connections));
+    }
+
+    @GetMapping("/providers/status")
+    @Operation(summary = "Get provider integration status", description = "Returns configuration status, OAuth URL, and setup instructions for each supported provider")
+    public ResponseEntity<ApiResponse<List<ProviderStatusResponse>>> getProviderStatuses(
+            @RequestParam(required = false) String redirectUri) {
+        List<ProviderStatusResponse> statuses = storageConnectionService.getProviderStatuses(redirectUri);
+        return ResponseEntity.ok(ApiResponse.success(statuses));
     }
 
     @GetMapping("/google/auth-url")
@@ -41,7 +51,7 @@ public class StorageController {
             @RequestParam(required = false) String redirectUri) {
         String userId = SecurityUtils.getCurrentUserId();
         String url = storageConnectionService.getGoogleAuthUrl(userId, redirectUri);
-        return ResponseEntity.ok(ApiResponse.success(Map.of("authorizationUrl", url)));
+        return ResponseEntity.ok(ApiResponse.success(Map.of("authorizationUrl", url != null ? url : "")));
     }
 
     @PostMapping("/local/register")
@@ -62,11 +72,19 @@ public class StorageController {
     }
 
     @PostMapping("/google/connect")
-    @Operation(summary = "Connect Google Drive", description = "Exchanges or encrypts OAuth authorization code and creates Google Drive connection")
+    @Operation(summary = "Connect Google Drive", description = "Exchanges OAuth authorization code and creates Google Drive connection")
     public ResponseEntity<ApiResponse<StorageConnectionResponse>> connectGoogleDrive(@Valid @RequestBody GoogleConnectRequest request) {
         String userId = SecurityUtils.getCurrentUserId();
         StorageConnectionResponse response = storageConnectionService.connectGoogleDrive(userId, request);
         return ResponseEntity.ok(ApiResponse.success("Google Drive OAuth connection established", response));
+    }
+
+    @PostMapping("/cloud/connect")
+    @Operation(summary = "Connect cloud account", description = "Connects Google Drive, OneDrive, or Dropbox account via OAuth 2.0 authorization code")
+    public ResponseEntity<ApiResponse<StorageConnectionResponse>> connectCloudAccount(@Valid @RequestBody CloudConnectRequest request) {
+        String userId = SecurityUtils.getCurrentUserId();
+        StorageConnectionResponse response = storageConnectionService.connectCloudAccount(userId, request);
+        return ResponseEntity.ok(ApiResponse.success("Cloud account connected successfully", response));
     }
 
     @DeleteMapping("/{id}")

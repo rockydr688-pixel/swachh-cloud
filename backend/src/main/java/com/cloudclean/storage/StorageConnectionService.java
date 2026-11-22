@@ -1,13 +1,17 @@
 package com.cloudclean.storage;
 
+import com.cloudclean.dto.CloudConnectRequest;
 import com.cloudclean.dto.GoogleConnectRequest;
+import com.cloudclean.dto.ProviderStatusResponse;
 import com.cloudclean.dto.StorageConnectionRequest;
 import com.cloudclean.dto.StorageConnectionResponse;
 import com.cloudclean.exception.BadRequestException;
 import com.cloudclean.exception.ResourceNotFoundException;
 import com.cloudclean.repository.StorageConnectionRepository;
 import com.cloudclean.storage.agent.LocalAgentScanner;
+import com.cloudclean.storage.dropbox.DropboxOAuthService;
 import com.cloudclean.storage.google.GoogleOAuthService;
+import com.cloudclean.storage.onedrive.OneDriveOAuthService;
 import com.cloudclean.storage.provider.StorageProvider;
 import com.cloudclean.storage.provider.StorageProviderRegistry;
 import com.cloudclean.storage.provider.StorageUsage;
@@ -34,17 +38,23 @@ public class StorageConnectionService {
     private final StorageConnectionRepository connectionRepository;
     private final EncryptionUtils encryptionUtils;
     private final GoogleOAuthService googleOAuthService;
+    private final OneDriveOAuthService oneDriveOAuthService;
+    private final DropboxOAuthService dropboxOAuthService;
     private final StorageProviderRegistry storageProviderRegistry;
     private final LocalAgentScanner localAgentScanner;
 
     public StorageConnectionService(StorageConnectionRepository connectionRepository,
                                     EncryptionUtils encryptionUtils,
                                     GoogleOAuthService googleOAuthService,
+                                    OneDriveOAuthService oneDriveOAuthService,
+                                    DropboxOAuthService dropboxOAuthService,
                                     StorageProviderRegistry storageProviderRegistry,
                                     LocalAgentScanner localAgentScanner) {
         this.connectionRepository = connectionRepository;
         this.encryptionUtils = encryptionUtils;
         this.googleOAuthService = googleOAuthService;
+        this.oneDriveOAuthService = oneDriveOAuthService;
+        this.dropboxOAuthService = dropboxOAuthService;
         this.storageProviderRegistry = storageProviderRegistry;
         this.localAgentScanner = localAgentScanner;
     }
@@ -66,11 +76,23 @@ public class StorageConnectionService {
 
             StorageConnection gdrive = new StorageConnection(userId, "Google Drive", "google_drive");
             gdrive.setStatus("disconnected");
-            gdrive.setDescription("Enterprise cloud drive optimization with OAuth 2.0 access.");
+            gdrive.setDescription("Google Workspace Cloud Drive with OAuth 2.0 and recursive folder scanning.");
             gdrive.setTotalCapacityBytes(16106127360L); // 15 GB default
             gdrive.setUsedBytes(0L);
 
-            connections = connectionRepository.saveAll(List.of(local, gdrive));
+            StorageConnection onedrive = new StorageConnection(userId, "Microsoft OneDrive", "onedrive");
+            onedrive.setStatus("disconnected");
+            onedrive.setDescription("Microsoft 365 Personal / Business Cloud Storage with Graph API integration.");
+            onedrive.setTotalCapacityBytes(1099511627776L); // 1 TB default
+            onedrive.setUsedBytes(0L);
+
+            StorageConnection dropbox = new StorageConnection(userId, "Dropbox", "dropbox");
+            dropbox.setStatus("disconnected");
+            dropbox.setDescription("Dropbox cloud storage with cursor pagination and deleted items recovery.");
+            dropbox.setTotalCapacityBytes(2147483648L); // 2 GB default
+            dropbox.setUsedBytes(0L);
+
+            connections = connectionRepository.saveAll(List.of(local, gdrive, onedrive, dropbox));
         }
 
         // Dynamically query actual usage for connected providers
@@ -94,6 +116,59 @@ public class StorageConnectionService {
                 .collect(Collectors.toList());
     }
 
+    public List<ProviderStatusResponse> getProviderStatuses(String redirectUri) {
+        List<ProviderStatusResponse> list = new ArrayList<>();
+
+        // 1. Google Drive
+        boolean gConfigured = googleOAuthService.isConfigured();
+        list.add(new ProviderStatusResponse(
+                "google_drive",
+                "Google Drive",
+                gConfigured,
+                true,
+                gConfigured ? googleOAuthService.buildAuthorizationUrl("google_drive", redirectUri) : null,
+                gConfigured ? null : "Configure GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET in .env from Google Cloud Console.",
+                GoogleOAuthService.OAUTH_SCOPES
+        ));
+
+        // 2. Microsoft OneDrive
+        boolean msConfigured = oneDriveOAuthService.isConfigured();
+        list.add(new ProviderStatusResponse(
+                "onedrive",
+                "Microsoft OneDrive",
+                msConfigured,
+                true,
+                msConfigured ? oneDriveOAuthService.buildAuthorizationUrl("onedrive", redirectUri) : null,
+                msConfigured ? null : "Configure ONEDRIVE_CLIENT_ID and ONEDRIVE_CLIENT_SECRET in .env from Azure AD App Registration.",
+                OneDriveOAuthService.OAUTH_SCOPES
+        ));
+
+        // 3. Dropbox
+        boolean dbxConfigured = dropboxOAuthService.isConfigured();
+        list.add(new ProviderStatusResponse(
+                "dropbox",
+                "Dropbox",
+                dbxConfigured,
+                true,
+                dbxConfigured ? dropboxOAuthService.buildAuthorizationUrl("dropbox", redirectUri) : null,
+                dbxConfigured ? null : "Configure DROPBOX_CLIENT_ID and DROPBOX_CLIENT_SECRET in .env from Dropbox App Console.",
+                DropboxOAuthService.OAUTH_SCOPES
+        ));
+
+        // 4. Local Storage
+        list.add(new ProviderStatusResponse(
+                "local",
+                "Local Computer",
+                true,
+                true,
+                null,
+                null,
+                List.of("filesystem:read", "filesystem:trash")
+        ));
+
+        return list;
+    }
+
     public StorageConnectionResponse registerLocalConnection(String userId, StorageConnectionRequest request) {
         StorageConnection connection = connectionRepository.findByUserIdAndType(userId, "local")
                 .orElse(new StorageConnection(userId, request.getName() != null ? request.getName() : "Local Computer", "local"));
@@ -107,7 +182,6 @@ public class StorageConnectionService {
             List<String> validatedPaths = new ArrayList<>(connection.getMonitoredPaths());
             for (String p : request.getPaths()) {
                 Path path = Paths.get(p);
-                // Validate path security
                 if (!Files.exists(path)) {
                     throw new BadRequestException("Specified directory does not exist: " + p);
                 }
@@ -163,40 +237,105 @@ public class StorageConnectionService {
     }
 
     public StorageConnectionResponse connectGoogleDrive(String userId, GoogleConnectRequest request) {
+        CloudConnectRequest req = new CloudConnectRequest("google_drive", request.getAuthCode(), request.getRedirectUri());
+        return connectCloudAccount(userId, req);
+    }
+
+    public StorageConnectionResponse connectCloudAccount(String userId, CloudConnectRequest request) {
         if (request.getAuthCode() == null || request.getAuthCode().isBlank()) {
             throw new BadRequestException("OAuth authorization code cannot be empty");
         }
 
-        StorageConnection connection = connectionRepository.findByUserIdAndType(userId, "google_drive")
-                .orElse(new StorageConnection(userId, "Google Drive", "google_drive"));
+        String provider = request.getProvider() != null ? request.getProvider().toLowerCase() : "google_drive";
 
-        // If client ID / secret configured, attempt exchange; otherwise store safely encrypted code/token
-        try {
-            GoogleOAuthService.OAuthTokenResult tokenResult = googleOAuthService.exchangeCode(
-                    request.getAuthCode(), request.getRedirectUri()
-            );
+        String accessToken = null;
+        String refreshToken = null;
+        Instant expiresAt = null;
+        String accountEmail = null;
+        String accountName = null;
+        long totalCapacity = 1099511627776L;
 
-            connection.setEncryptedAccessToken(encryptionUtils.encrypt(tokenResult.accessToken()));
-            if (tokenResult.refreshToken() != null) {
-                connection.setEncryptedRefreshToken(encryptionUtils.encrypt(tokenResult.refreshToken()));
+        switch (provider) {
+            case "google_drive" -> {
+                if (!googleOAuthService.isConfigured()) {
+                    throw new BadRequestException("Google Drive credentials not configured. Please set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.");
+                }
+                GoogleOAuthService.OAuthTokenResult res = googleOAuthService.exchangeCode(request.getAuthCode(), request.getRedirectUri());
+                accessToken = res.accessToken();
+                refreshToken = res.refreshToken();
+                expiresAt = res.expiresAt();
+                accountEmail = res.email();
+                accountName = res.name();
+                totalCapacity = 16106127360L; // 15GB
             }
-            connection.setTokenExpiresAt(tokenResult.expiresAt());
-            connection.setAccountEmail(tokenResult.email());
-            connection.setAccountName(tokenResult.name());
-        } catch (Exception ex) {
-            log.warn("OAuth direct exchange bypassed or simulation mode: {}. Storing encrypted credential.", ex.getMessage());
-            // Encrypt and store token safely
-            connection.setEncryptedAccessToken(encryptionUtils.encrypt(request.getAuthCode()));
-            connection.setTokenExpiresAt(Instant.now().plusSeconds(3600 * 24 * 30));
-            connection.setAccountEmail("user@workspace.google.com");
-            connection.setAccountName("Google Workspace Account");
+            case "onedrive" -> {
+                if (!oneDriveOAuthService.isConfigured()) {
+                    throw new BadRequestException("Microsoft OneDrive credentials not configured. Please set ONEDRIVE_CLIENT_ID and ONEDRIVE_CLIENT_SECRET.");
+                }
+                OneDriveOAuthService.OAuthTokenResult res = oneDriveOAuthService.exchangeCode(request.getAuthCode(), request.getRedirectUri());
+                accessToken = res.accessToken();
+                refreshToken = res.refreshToken();
+                expiresAt = res.expiresAt();
+                accountEmail = res.email();
+                accountName = res.name();
+                totalCapacity = 1099511627776L; // 1TB
+            }
+            case "dropbox" -> {
+                if (!dropboxOAuthService.isConfigured()) {
+                    throw new BadRequestException("Dropbox credentials not configured. Please set DROPBOX_CLIENT_ID and DROPBOX_CLIENT_SECRET.");
+                }
+                DropboxOAuthService.OAuthTokenResult res = dropboxOAuthService.exchangeCode(request.getAuthCode(), request.getRedirectUri());
+                accessToken = res.accessToken();
+                refreshToken = res.refreshToken();
+                expiresAt = res.expiresAt();
+                accountEmail = res.email();
+                accountName = res.name();
+                totalCapacity = 2147483648L; // 2GB
+            }
+            default -> throw new BadRequestException("Unsupported cloud provider: " + provider);
         }
 
+        // Support multiple accounts: match existing connection for this user, provider, and account email; or create a new one!
+        StorageConnection connection = null;
+        if (accountEmail != null) {
+            connection = connectionRepository.findByUserIdAndTypeAndAccountEmail(userId, provider, accountEmail).orElse(null);
+        }
+        if (connection == null) {
+            // Check if there is an unattached placeholder connection of this type
+            connection = connectionRepository.findByUserIdAndType(userId, provider)
+                    .filter(c -> c.getEncryptedAccessToken() == null)
+                    .orElse(null);
+        }
+        if (connection == null) {
+            String defaultLabel = Character.toUpperCase(provider.charAt(0)) + provider.substring(1).replace("_", " ");
+            connection = new StorageConnection(userId, defaultLabel, provider);
+        }
+
+        connection.setEncryptedAccessToken(encryptionUtils.encrypt(accessToken));
+        if (refreshToken != null) {
+            connection.setEncryptedRefreshToken(encryptionUtils.encrypt(refreshToken));
+        }
+        connection.setTokenExpiresAt(expiresAt);
+        connection.setAccountEmail(accountEmail);
+        connection.setAccountName(accountName);
         connection.setStatus("connected");
+        connection.setTotalCapacityBytes(totalCapacity);
         connection.setLastScanTime(Instant.now());
 
+        if (request.getAccountName() != null && !request.getAccountName().isBlank()) {
+            connection.setName(request.getAccountName());
+        } else if (accountEmail != null) {
+            String displayName = switch (provider) {
+                case "google_drive" -> "Google Drive (" + accountEmail + ")";
+                case "onedrive" -> "OneDrive (" + accountEmail + ")";
+                case "dropbox" -> "Dropbox (" + accountEmail + ")";
+                default -> provider + " (" + accountEmail + ")";
+            };
+            connection.setName(displayName);
+        }
+
         StorageConnection saved = connectionRepository.save(connection);
-        log.info("Encrypted and stored Google Drive OAuth connection for user: {}", userId);
+        log.info("Saved OAuth connection {} for user: {} provider: {} email: {}", saved.getId(), userId, provider, accountEmail);
         return new StorageConnectionResponse(saved);
     }
 

@@ -39,6 +39,8 @@ flowchart TD
         subgraph StorageAdapters["Storage Provider Layer"]
             LocalAdp["LocalStorageAdapter (Recycle Bin / Trash Sandbox)"]
             GDriveAdp["GoogleDriveAdapter (Drive API v3 / OAuth2)"]
+            OneDriveAdp["OneDriveAdapter (Microsoft Graph API v1.0)"]
+            DropboxAdp["DropboxAdapter (Dropbox API v2)"]
             LocalAgent["LocalAgentScanner (Whitelisted FS Traversal)"]
         end
     end
@@ -55,6 +57,8 @@ flowchart TD
     subgraph StorageSources["Target Storage Repositories"]
         LocalFS["Local File System (Permitted Folders)"]
         GoogleCloud["Google Drive (Cloud Storage)"]
+        OneDriveCloud["Microsoft OneDrive (Graph API)"]
+        DropboxCloud["Dropbox (v2 API)"]
     end
 
     UI -->|HTTPS / Axios| Nginx
@@ -65,8 +69,11 @@ flowchart TD
     CoreServices --> Mongo
 
     ScanSvc --> StorageAdapters
+    ScanSvc -->|Server-Sent Events| UI
     StorageAdapters --> LocalFS
     StorageAdapters --> GoogleCloud
+    StorageAdapters --> OneDriveCloud
+    StorageAdapters --> DropboxCloud
 
     FileSvc --> AIService
     CleanSvc --> StorageAdapters
@@ -78,11 +85,13 @@ flowchart TD
 ## 2. Inter-Service Communication Flow
 
 ### A. Scanning & Detection Pipeline
-1. **Trigger Scan**: User requests a scan on a configured target (`Local Computer` or `Google Drive`).
-2. **Asynchronous Execution**: `ScanService` enqueues a `ScanJob` (`@Async` thread pool), returning `202 Accepted` with a `scanId`.
+1. **Trigger Scan**: User requests a scan on a configured target (`Local Computer`, `Google Drive`, `Microsoft OneDrive`, or `Dropbox`).
+2. **Asynchronous Execution & SSE**: `ScanService` enqueues a `ScanJob` (`@Async` thread pool), returning `202 Accepted` with a `scanId`. The client connects to `GET /api/scans/{id}/progress/stream` (Server-Sent Events) to observe real-time progress across 7 distinct scanning phases.
 3. **Provider Traversal**:
    - For **Local Storage**: `LocalAgentScanner` traverses only user-approved directories. Restricted paths (`C:\Windows`, `/etc`, etc.) and directory traversals (`..`) are blocked. SHA-256 checksums are calculated streamingly.
    - For **Google Drive**: `GoogleDriveAdapter` fetches file metadata via Google Drive API v3 using user OAuth access tokens (auto-refreshed via encrypted refresh tokens).
+   - For **Microsoft OneDrive**: `OneDriveAdapter` navigates folder trees recursively using Microsoft Graph API v1.0 (`/me/drive/root/children` with `@odata.nextLink` pagination) and resolves items streaming.
+   - For **Dropbox**: `DropboxAdapter` leverages Dropbox API v2 `/2/files/list_folder` cursor-based pagination and streaming downloads via `content.dropboxapi.com`.
 4. **AI Image Analysis**:
    - Image files are submitted via internal HTTP to the **FastAPI AI Microservice** (`/analyze/full`).
    - The microservice executes OpenCV Laplacian variance, calculates perceptual difference hashes (`dHash`, `ahash`), and detects under/overexposure without storing raw images.
@@ -93,11 +102,15 @@ flowchart TD
 
 ### B. Safe Cleanup & Recovery Pipeline
 1. **Candidate Selection**: User selects candidate files in `CleanupRecommendations.jsx`.
-2. **Impact Calculation**: Backend calculates exact recoverable space via `/api/cleanup/impact`, filtering out protected whitelisted files.
-3. **Explicit Confirmation**: The user must check the explicit confirmation checkbox (`confirmed: true`); unconfirmed requests fail with `400 Bad Request`.
-4. **Provider-Safe Deletion**:
-   - Files are moved to provider trash (`.cloudclean_trash` directory sandbox for local; Drive Trash API for cloud). Files are never permanently purged without explicit secondary intent.
-5. **Reconciliation & Audit**:
+2. **Duplicate Safety Net**: The backend analyzes selected duplicate files against their duplicate groups (`duplicate_groups` collection). If all copies of a duplicate cluster are targeted for deletion, the safety net automatically preserves the primary original master copy (`Keep Original`), preventing accidental permanent loss of all file copies.
+3. **Impact Calculation**: Backend calculates exact recoverable space via `/api/cleanup/impact`, filtering out protected whitelisted files.
+4. **Explicit Confirmation**: The user must check the explicit confirmation checkbox (`confirmed: true`); unconfirmed requests fail with `400 Bad Request`.
+5. **Provider-Safe Multi-Cloud Trash**:
+   - **Local Storage**: Files are relocated to the local `.cloudclean_trash` directory sandbox.
+   - **Google Drive**: Files are moved to Google Drive trash via `trashed: true`.
+   - **Microsoft OneDrive**: Files are sent to the user's OneDrive Recycle Bin via Microsoft Graph `DELETE /me/drive/items/{id}` (restorable for 30–93 days).
+   - **Dropbox**: Files are moved to Dropbox retention trash via `/2/files/delete_v2` (restorable for 30–180 days).
+6. **Reconciliation & Audit**:
    - Storage reclaimed is only recorded once confirmed by the provider adapter.
    - Detailed snapshot is saved to `cleanup_history`.
    - Restoration is available anytime via `/api/cleanup/{id}/restore`.
