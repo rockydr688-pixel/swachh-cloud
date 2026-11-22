@@ -3,391 +3,394 @@ import { useNavigate } from 'react-router-dom';
 import {
   HardDrive,
   Sparkles,
-  Files,
-  Copy,
-  ImageOff,
-  Maximize2,
-  Clock,
-  ArrowRight,
-  TrendingDown,
-  ShieldCheck,
-  AlertTriangle,
   RefreshCw,
   FolderOpen,
+  ArrowRight,
+  ShieldCheck,
+  CheckCircle2,
+  Clock,
+  Trash2,
+  ExternalLink,
+  ChevronRight,
+  FileCheck2,
 } from 'lucide-react';
 import { useStorage } from '../context/StorageContext';
 import { formatBytes, formatNumber, formatDate } from '../utils/formatters';
-import PageHeader from '../components/layout/PageHeader';
-import StatCard from '../components/common/StatCard';
 import Button from '../components/common/Button';
 import Card from '../components/common/Card';
 import Badge from '../components/common/Badge';
-import ProgressBar from '../components/common/ProgressBar';
 import LoadingSpinner from '../components/common/LoadingSpinner';
-import StorageUsageChart from '../components/charts/StorageUsageChart';
-import CategoryDistributionChart from '../components/charts/CategoryDistributionChart';
-import {
-  mockStorageUsageHistory,
-  mockCategoryDistribution,
-} from '../data/mockData';
+import ScanModal from '../components/scanner/ScanModal';
 
 export const Dashboard = () => {
   const navigate = useNavigate();
-  const { stats, recommendations, recentScans, loading, runScan, isScanning } =
-    useStorage();
+  const { stats, connections, recentScans, loading, runScan, isScanning } = useStorage();
+  const [scanModalOpen, setScanModalOpen] = useState(false);
 
   if (loading || !stats) {
     return <LoadingSpinner fullPage message="Aggregating storage telemetry..." />;
   }
 
   const usedPercentage = Math.round(
-    (stats.totalUsedBytes / stats.totalCapacityBytes) * 100
-  );
-  const recoverablePercentage = Math.round(
-    (stats.recoverableBytes / stats.totalUsedBytes) * 100
+    ((stats.totalUsedBytes || 0) / (stats.totalCapacityBytes || 1)) * 100
   );
 
+  // Group or identify standard 4 providers
+  const providersList = [
+    {
+      type: 'local',
+      displayName: 'Local Computer',
+      iconUrl: null,
+      defaultAccount: 'My Workstation',
+    },
+    {
+      type: 'google_drive',
+      displayName: 'Google Drive',
+      iconUrl: null,
+      defaultAccount: 'Google Account',
+    },
+    {
+      type: 'onedrive',
+      displayName: 'OneDrive',
+      iconUrl: null,
+      defaultAccount: 'Microsoft Account',
+    },
+    {
+      type: 'dropbox',
+      displayName: 'Dropbox',
+      iconUrl: null,
+      defaultAccount: 'Dropbox Account',
+    },
+  ];
+
+  const getMatchedConnection = (providerType) => {
+    return (connections || []).find(
+      (c) => c.type === providerType || c.type?.toLowerCase().includes(providerType)
+    );
+  };
+
   return (
-    <div className="space-y-6">
-      {/* Top Header */}
-      <PageHeader
-        title="Storage Intelligence Dashboard"
-        subtitle="Real-time telemetry, AI bloat diagnostics, and optimization insights across your connected storage drives."
-        badge={
-          <Badge variant="indigo" size="sm">
-            AI Engine v2.4
-          </Badge>
-        }
-        actions={
-          <>
-            <Button
-              variant="secondary"
-              size="sm"
-              icon={RefreshCw}
-              onClick={() => runScan('Quick Scan')}
-              isLoading={isScanning}
-            >
-              Refresh Telemetry
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              icon={Sparkles}
-              onClick={() => navigate('/recommendations')}
-              className="bg-indigo-600 hover:bg-indigo-700 shadow-sm"
-            >
-              Review Recommendations
-            </Button>
-          </>
-        }
-      />
+    <div className="space-y-8 font-sans">
+      {/* 1. Header Banner */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-2 border-b border-slate-100">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">
+              Storage Intelligence Dashboard
+            </span>
+            <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-100 text-slate-600">
+              AI Engine v2.4
+            </span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Your cloud storage, cleaned and organized.
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Find duplicates, blurry photos, and old files to reclaim space across your accounts.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <Button
+            variant="secondary"
+            size="sm"
+            icon={RefreshCw}
+            onClick={() => runScan('Quick Scan')}
+            isLoading={isScanning}
+            className="text-xs border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            Refresh Telemetry
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={Sparkles}
+            onClick={() => navigate('/junk')}
+            className="text-xs border-blue-200 text-blue-600 hover:bg-blue-50"
+          >
+            Review Recommendations
+          </Button>
+        </div>
+      </div>
 
       {/* Empty State when no files scanned yet */}
       {stats.totalFiles === 0 ? (
-        <Card className="text-center py-16 px-6 border-dashed border-2 border-slate-300 bg-white">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-sm">
-            <HardDrive className="w-8 h-8 opacity-80" />
+        <div className="text-center py-16 px-6 rounded-2xl border-2 border-dashed border-slate-200 bg-white">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600">
+            <HardDrive className="w-8 h-8 opacity-90" />
           </div>
           <h3 className="text-lg font-bold text-slate-900">
             No files scanned yet. Connect your storage to get started.
           </h3>
           <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1.5 mb-6 leading-relaxed">
-            Link a local computer directory or authorize your Google Drive account to initiate AI bloat detection, duplicate analysis, and blur classification.
+            Link a local computer directory or authorize your cloud accounts to find unnecessary files and reclaim gigabytes of storage.
           </p>
           <div className="flex items-center justify-center gap-3 flex-wrap">
             <Button
-              variant="primary"
+              variant="outline"
               icon={FolderOpen}
-              onClick={() => navigate('/connections')}
-              className="bg-indigo-600 hover:bg-indigo-700 shadow-sm text-xs"
+              onClick={() => navigate('/storage')}
+              className="text-slate-700 border-slate-200"
             >
               Connect Storage
             </Button>
             <Button
-              variant="secondary"
+              variant="primary"
               icon={Sparkles}
-              onClick={() => runScan('Local Computer')}
-              isLoading={isScanning}
-              className="text-xs"
+              onClick={() => setScanModalOpen(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white"
             >
               Start First Scan
             </Button>
           </div>
-        </Card>
+        </div>
       ) : (
         <>
-          {/* Main Storage Capacity & Recoverable Banner */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Total Storage Card */}
-        <Card className="lg:col-span-2 relative overflow-hidden bg-gradient-to-br from-slate-900 via-[#0B132B] to-slate-900 text-white border-slate-800">
-          <div className="relative z-10 flex flex-col justify-between h-full p-2">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-                  Total Storage Pool Capacity
-                </span>
-                <Badge variant="navy" size="xs">
-                  1 TB Total Volume
-                </Badge>
+          {/* 2. Top 3 Important Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {/* Stat 1: Total Storage Used */}
+            <div className="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span>Total Storage Used</span>
+                <span className="text-slate-400 font-normal">Total Storage Pool Capacity</span>
               </div>
-
-              <div className="mt-3 flex items-baseline gap-3">
-                <h3 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white">
-                  {formatBytes(stats.totalUsedBytes)}
-                </h3>
-                <span className="text-sm text-slate-400 font-medium">
-                  used of {formatBytes(stats.totalCapacityBytes)} ({usedPercentage}%)
-                </span>
+              <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                {formatBytes(stats.totalUsedBytes || 0)}
               </div>
-
-              {/* Capacity Bar */}
-              <div className="mt-5 space-y-2">
-                <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700/60">
+              <div className="space-y-1.5 pt-1">
+                <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 rounded-full transition-all duration-500"
-                    style={{ width: `${usedPercentage}%` }}
+                    className="h-full bg-blue-600 rounded-full transition-all duration-300"
+                    style={{ width: `${Math.min(100, usedPercentage || 45)}%` }}
                   />
                 </div>
-                <div className="flex items-center justify-between text-[11px] text-slate-400">
-                  <span>Available: {formatBytes(stats.totalCapacityBytes - stats.totalUsedBytes)}</span>
-                  <span>Health Score: {stats.healthScore}/100</span>
+                <div className="flex justify-between text-[11px] text-slate-500">
+                  <span>{usedPercentage}% capacity used</span>
+                  <span>{formatBytes(stats.totalCapacityBytes - stats.totalUsedBytes)} free</span>
                 </div>
               </div>
             </div>
 
-            <div className="mt-6 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
-              <span className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                Local storage agent synced 12m ago
-              </span>
-              <button
-                onClick={() => navigate('/connections')}
-                className="text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1"
-              >
-                Manage Drives <ArrowRight className="w-3.5 h-3.5" />
-              </button>
-            </div>
-          </div>
-        </Card>
-
-        {/* Recoverable Storage Highlight Card */}
-        <Card className="bg-gradient-to-br from-indigo-500 to-violet-700 text-white border-0 shadow-lg shadow-indigo-600/10">
-          <div className="flex flex-col justify-between h-full p-2">
-            <div>
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wider text-indigo-100">
+            {/* Stat 2: Potential Space to Recover */}
+            <div className="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span>Potential Space to Recover</span>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-[11px] font-bold">
                   Recoverable Savings
                 </span>
-                <span className="p-1.5 rounded-lg bg-white/10 backdrop-blur-md">
-                  <Sparkles className="w-4 h-4 text-white" />
-                </span>
               </div>
-
-              <div className="mt-3">
-                <h3 className="text-3xl font-extrabold text-white">
-                  {formatBytes(stats.recoverableBytes)}
-                </h3>
-                <p className="text-xs text-indigo-100 font-medium mt-1">
-                  ~{recoverablePercentage}% of your used drive can be safely reclaimed
-                </p>
+              <div className="text-3xl font-extrabold text-emerald-600 tracking-tight">
+                {formatBytes(stats.recoverableBytes || 0)}
               </div>
+              <div className="text-xs text-slate-500 pt-1 flex items-center justify-between">
+                <span>Safe to clean without losing originals</span>
+                <button
+                  onClick={() => navigate('/junk')}
+                  className="text-blue-600 hover:text-blue-700 font-semibold flex items-center gap-1"
+                >
+                  Clean Now <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
 
-              <div className="mt-4 p-3 bg-white/10 rounded-xl backdrop-blur-sm border border-white/10 text-xs text-indigo-50 space-y-1">
+            {/* Stat 3: Files Scanned */}
+            <div className="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-3">
+              <div className="flex items-center justify-between text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                <span>Files Scanned</span>
+                <span className="text-xs text-slate-400">Total Catalog</span>
+              </div>
+              <div className="text-3xl font-extrabold text-slate-900 tracking-tight">
+                {formatNumber(stats.totalFiles || 0)}
+              </div>
+              <div className="pt-1 text-[11px] text-slate-500 space-y-0.5">
                 <div className="flex justify-between">
                   <span>Exact Duplicates:</span>
-                  <span className="font-bold">{formatBytes(stats.duplicateBytes)}</span>
+                  <span className="font-semibold text-slate-700">{formatNumber(stats.duplicateCount || 0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Blurry Photos:</span>
-                  <span className="font-bold">{formatBytes(stats.blurryImagesBytes)}</span>
+                  <span className="font-semibold text-slate-700">{formatNumber(stats.blurryImagesCount || 0)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Stale Large Files:</span>
-                  <span className="font-bold">{formatBytes(stats.largeFilesBytes)}</span>
+                  <span className="font-semibold text-slate-700">{formatNumber(stats.largeFilesCount || 0)}</span>
                 </div>
               </div>
             </div>
+          </div>
 
-            <div className="mt-5">
-              <Button
-                variant="navy"
-                size="sm"
-                className="w-full justify-center bg-white text-indigo-900 hover:bg-slate-100 font-bold shadow-md"
-                onClick={() => navigate('/recommendations')}
-              >
-                Clean All Safe Items
-              </Button>
+          {/* 3. Primary CTA Banner: Scan My Storage */}
+          <div className="p-6 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 text-white flex flex-col sm:flex-row items-center justify-between gap-4 shadow-sm">
+            <div className="space-y-1 text-center sm:text-left">
+              <h2 className="text-xl font-bold">Ready to free up storage space?</h2>
+              <p className="text-sm text-blue-100 max-w-xl">
+                Start a quick scan to detect duplicate files, blurry camera shots, and old downloads across all your connected drives.
+              </p>
             </div>
-          </div>
-        </Card>
-      </div>
-
-      {/* 4 Core Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Files Scanned"
-          value={formatNumber(stats.totalFilesScanned)}
-          subvalue="Across 3 local directories"
-          icon={Files}
-          color="blue"
-          onClick={() => navigate('/files')}
-        />
-        <StatCard
-          title="Duplicate Files"
-          value={formatNumber(stats.duplicateFilesCount)}
-          subvalue={formatBytes(stats.duplicateBytes)}
-          icon={Copy}
-          color="indigo"
-          badgeText="89.2 GB"
-          badgeVariant="indigo"
-          onClick={() => navigate('/files/duplicates')}
-        />
-        <StatCard
-          title="Blurry Images"
-          value={formatNumber(stats.blurryImagesCount)}
-          subvalue={formatBytes(stats.blurryImagesBytes)}
-          icon={ImageOff}
-          color="violet"
-          badgeText="14.5 GB"
-          badgeVariant="violet"
-          onClick={() => navigate('/files/blurry')}
-        />
-        <StatCard
-          title="Large Files (>500MB)"
-          value={formatNumber(stats.largeFilesCount)}
-          subvalue={formatBytes(stats.largeFilesBytes)}
-          icon={Maximize2}
-          color="amber"
-          badgeText="112.8 GB"
-          badgeVariant="warning"
-          onClick={() => navigate('/files/large')}
-        />
-      </div>
-
-      {/* Analytics Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2">
-          <StorageUsageChart data={mockStorageUsageHistory} />
-        </div>
-        <div>
-          <CategoryDistributionChart data={mockCategoryDistribution} />
-        </div>
-      </div>
-
-      {/* Recent Cleanup Recommendations & Recent Scan Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Recent Recommendations */}
-        <Card
-          title="Prioritized AI Recommendations"
-          subtitle="Top automated actions to optimize storage health"
-          headerAction={
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => navigate('/recommendations')}
-              className="text-indigo-600 hover:text-indigo-700"
+            <button
+              onClick={() => setScanModalOpen(true)}
+              className="px-6 py-3.5 rounded-xl bg-white text-blue-700 hover:bg-blue-50 font-bold text-sm shadow-md transition-all shrink-0 flex items-center gap-2 hover:scale-[1.02] active:scale-[0.98]"
             >
-              View All ({recommendations.length})
-            </Button>
-          }
-        >
-          <div className="space-y-3">
-            {recommendations.slice(0, 3).map((rec) => (
-              <div
-                key={rec.id}
-                className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/50 hover:bg-slate-50 transition-colors flex items-start justify-between gap-3"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-900">
-                      {rec.title}
-                    </span>
-                    <Badge
-                      variant={
-                        rec.safetyLevel === 'Safe to Delete' ? 'success' : 'warning'
-                      }
-                      size="xs"
-                    >
-                      {rec.safetyScore}% Safe
-                    </Badge>
-                  </div>
-                  <p className="text-[11px] text-slate-500 line-clamp-2">
-                    {rec.description}
-                  </p>
-                  <span className="text-[10px] font-bold text-indigo-600 block">
-                    Save {formatBytes(rec.potentialSavingsBytes)}
-                  </span>
-                </div>
+              <Sparkles className="w-4 h-4 text-blue-600" />
+              <span>Scan My Storage</span>
+            </button>
+          </div>
 
-                <Button
-                  size="xs"
-                  variant="outline"
-                  onClick={() => navigate('/recommendations')}
-                  className="shrink-0"
-                >
-                  Action
-                </Button>
+          {/* 4. Connected Accounts Section */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-bold text-slate-900">Connected Accounts</h3>
+                <p className="text-xs text-slate-500">Manage and monitor storage across your devices and cloud drives</p>
               </div>
-            ))}
-          </div>
-        </Card>
-
-        {/* Recent Scanning Activity */}
-        <Card
-          title="Recent Scanning Activity"
-          subtitle="Audited inspection runs across drives and agents"
-          headerAction={
-            <Button
-              variant="ghost"
-              size="xs"
-              onClick={() => navigate('/scanner')}
-              className="text-indigo-600 hover:text-indigo-700"
-            >
-              Scanner Logs
-            </Button>
-          }
-        >
-          <div className="space-y-3">
-            {recentScans.map((scan) => (
-              <div
-                key={scan.id}
-                className="p-3 rounded-xl border border-slate-100 flex items-center justify-between gap-3 text-xs"
+              <button
+                onClick={() => navigate('/storage')}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
               >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-lg bg-slate-100 text-slate-600 shrink-0">
-                    <Clock className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <h5 className="font-semibold text-slate-900">{scan.target}</h5>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5">
-                      <span>{scan.duration}</span>
-                      <span>•</span>
-                      <span>{formatNumber(scan.filesScanned)} files</span>
+                Manage Storage <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {providersList.map((provider) => {
+                const conn = getMatchedConnection(provider.type);
+                const isConnected = conn && conn.status === 'connected';
+
+                return (
+                  <div
+                    key={provider.type}
+                    className="p-5 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col justify-between hover:border-slate-300 transition-colors"
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="w-9 h-9 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center font-bold text-slate-700">
+                          {provider.type === 'google_drive' && <span className="text-amber-500 text-sm font-black">G</span>}
+                          {provider.type === 'onedrive' && <span className="text-blue-500 text-sm font-black">M</span>}
+                          {provider.type === 'dropbox' && <span className="text-sky-600 text-sm font-black">D</span>}
+                          {provider.type === 'local' && <HardDrive className="w-4 h-4 text-slate-600" />}
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
+                            isConnected
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-100'
+                              : 'bg-slate-100 text-slate-500'
+                          }`}
+                        >
+                          {isConnected ? 'Connected' : 'Not Connected'}
+                        </span>
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900">{provider.displayName}</h4>
+                        <p className="text-xs text-slate-400 truncate">
+                          {conn?.name || conn?.accountEmail || provider.defaultAccount}
+                        </p>
+                      </div>
+
+                      {isConnected && conn?.usedSpaceBytes ? (
+                        <div className="text-xs text-slate-500">
+                          <span className="font-semibold text-slate-800">{formatBytes(conn.usedSpaceBytes)}</span> used
+                        </div>
+                      ) : (
+                        <div className="text-xs text-slate-400">Ready to link</div>
+                      )}
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-100 mt-4 flex items-center justify-between">
+                      {isConnected ? (
+                        <button
+                          onClick={() => {
+                            runScan({
+                              target: conn.name,
+                              storageType: conn.type,
+                              storageConnectionId: conn.id,
+                            });
+                          }}
+                          disabled={isScanning}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-700 transition-colors"
+                        >
+                          Scan Now
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => navigate('/storage')}
+                          className="text-xs font-semibold text-slate-600 hover:text-slate-900 transition-colors"
+                        >
+                          Connect
+                        </button>
+                      )}
+                      <span className="text-[11px] text-slate-400">
+                        {conn?.lastScannedAt ? formatDate(conn.lastScannedAt) : 'Never scanned'}
+                      </span>
                     </div>
                   </div>
-                </div>
-
-                <div className="text-right">
-                  <span className="font-bold text-slate-800 block">
-                    {formatBytes(scan.potentialSavingsBytes)}
-                  </span>
-                  <Badge
-                    variant={scan.status === 'completed' ? 'success' : 'default'}
-                    size="xs"
-                  >
-                    {scan.status}
-                  </Badge>
-                </div>
-              </div>
-            ))}
+                );
+              })}
+            </div>
           </div>
-        </Card>
-      </div>
-      </>
+
+          {/* 5. Small Recent Activity Section */}
+          <div className="p-6 bg-white rounded-2xl border border-slate-200/80 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-900">Recent Activity</h3>
+                <p className="text-xs text-slate-500">Latest scans and storage operations</p>
+              </div>
+              <button
+                onClick={() => navigate('/history')}
+                className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
+              >
+                View All History <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            <div className="divide-y divide-slate-100">
+              {recentScans && recentScans.length > 0 ? (
+                recentScans.slice(0, 4).map((scan, idx) => (
+                  <div key={scan.id || idx} className="py-3 flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-slate-50 text-slate-600 flex items-center justify-center">
+                        <Clock className="w-4 h-4 text-slate-400" />
+                      </div>
+                      <div>
+                        <div className="font-semibold text-slate-800">
+                          Scan completed on {scan.target || 'Storage'}
+                        </div>
+                        <div className="text-slate-400 text-[11px]">
+                          {scan.filesScanned || scan.totalFilesScanned || 0} files inspected ·{' '}
+                          {formatBytes(scan.bytesScanned || scan.totalBytesScanned || 0)}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700">
+                        Completed
+                      </span>
+                      <div className="text-[10px] text-slate-400 mt-1">
+                        {scan.completedTime || scan.startTime ? formatDate(scan.completedTime || scan.startTime) : 'Recent'}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="py-6 text-center text-xs text-slate-400">
+                  No scan activity recorded yet. Run a scan to see recent history.
+                </div>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Global Scan Modal */}
+      {scanModalOpen && (
+        <ScanModal
+          isOpen={scanModalOpen}
+          onClose={() => setScanModalOpen(false)}
+        />
       )}
     </div>
   );
 };
 
 export default Dashboard;
-

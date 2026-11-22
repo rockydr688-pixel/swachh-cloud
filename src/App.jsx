@@ -5,19 +5,16 @@ import { StorageProvider } from './context/StorageContext';
 import { ToastProvider } from './context/ToastContext';
 import AppLayout from './components/layout/AppLayout';
 
-// Pages
+// 5 Simplified Core Pages
 import Dashboard from './pages/Dashboard';
 import StorageConnections from './pages/StorageConnections';
-import FileScanner from './pages/FileScanner';
-import AllFiles from './pages/AllFiles';
-import DuplicateFiles from './pages/DuplicateFiles';
-import BlurryImages from './pages/BlurryImages';
-import LargeFiles from './pages/LargeFiles';
-import InactiveFiles from './pages/InactiveFiles';
 import CleanupRecommendations from './pages/CleanupRecommendations';
 import CleanupHistory from './pages/CleanupHistory';
-import ReportsAnalytics from './pages/ReportsAnalytics';
 import UserSettings from './pages/UserSettings';
+
+// Supporting / Scanner / Report Pages
+import FileScanner from './pages/FileScanner';
+import ReportsAnalytics from './pages/ReportsAnalytics';
 import AuthPage from './pages/AuthPage';
 
 // Protected Route Guard
@@ -27,7 +24,7 @@ const ProtectedRoute = ({ children }) => {
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+        <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -59,18 +56,30 @@ export const App = () => {
                 }
               >
                 <Route index element={<Navigate to="/dashboard" replace />} />
+
+                {/* 1. Home */}
                 <Route path="dashboard" element={<Dashboard />} />
+
+                {/* 2. My Storage */}
+                <Route path="storage" element={<StorageConnections />} />
                 <Route path="connections" element={<StorageConnections />} />
-                <Route path="scanner" element={<FileScanner />} />
-                <Route path="files" element={<AllFiles />} />
-                <Route path="files/duplicates" element={<DuplicateFiles />} />
-                <Route path="files/blurry" element={<BlurryImages />} />
-                <Route path="files/large" element={<LargeFiles />} />
-                <Route path="files/inactive" element={<InactiveFiles />} />
+
+                {/* 3. Junk Files (Combining Duplicates, Blurry, Large, Old, Temp) */}
+                <Route path="junk" element={<CleanupRecommendations />} />
                 <Route path="recommendations" element={<CleanupRecommendations />} />
+                <Route path="files" element={<CleanupRecommendations />} />
+                <Route path="files/*" element={<CleanupRecommendations />} />
+
+                {/* 4. Scan History */}
                 <Route path="history" element={<CleanupHistory />} />
-                <Route path="reports" element={<ReportsAnalytics />} />
+                <Route path="scans" element={<CleanupHistory />} />
+
+                {/* 5. Settings */}
                 <Route path="settings" element={<UserSettings />} />
+
+                {/* Direct Scanner & Reports support */}
+                <Route path="scanner" element={<FileScanner />} />
+                <Route path="reports" element={<ReportsAnalytics />} />
               </Route>
 
               {/* Catch-all redirect */}

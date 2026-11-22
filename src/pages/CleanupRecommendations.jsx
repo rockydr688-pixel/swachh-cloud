@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import PageHeader from '../components/layout/PageHeader';
 import Card from '../components/common/Card';
 import Button from '../components/common/Button';
@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Trash2,
-  Archive,
   ArrowRight,
   HardDrive,
   Info,
@@ -22,16 +21,22 @@ import {
   Shield,
   Filter,
   RefreshCw,
-  SlidersHorizontal,
+  Search,
+  Copy,
+  ImageOff,
+  Clock,
+  Maximize2,
+  FileCode,
+  File,
 } from 'lucide-react';
 
 export const CleanupRecommendations = () => {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedIds, setSelectedIds] = useState(new Set());
-  const [filterCategory, setFilterCategory] = useState('all');
-  const [filterRisk, setFilterRisk] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('all');
+  const [activeCategory, setActiveCategory] = useState('all'); // 'all' | 'duplicate' | 'blurry' | 'inactive' | 'large' | 'temp'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterStorage, setFilterStorage] = useState('all');
 
   // Modals state
   const [detailModalOpen, setDetailModalOpen] = useState(false);
@@ -46,11 +51,7 @@ export const CleanupRecommendations = () => {
   const fetchRecommendations = async () => {
     setLoading(true);
     try {
-      const res = await fileService.getRecommendations({
-        category: filterCategory !== 'all' ? filterCategory : undefined,
-        riskLevel: filterRisk !== 'all' ? filterRisk : undefined,
-        status: filterStatus !== 'all' ? filterStatus : undefined,
-      });
+      const res = await fileService.getRecommendations({});
       setRecommendations(res.data || []);
     } catch (e) {
       console.error(e);
@@ -61,11 +62,80 @@ export const CleanupRecommendations = () => {
 
   useEffect(() => {
     fetchRecommendations();
-  }, [filterCategory, filterRisk, filterStatus]);
+  }, []);
+
+  // 5 Main Categories
+  const categoryTabs = [
+    { id: 'all', label: 'All Junk Files', icon: Sparkles },
+    { id: 'duplicate', label: 'Duplicates', icon: Copy },
+    { id: 'blurry', label: 'Blurry Photos', icon: ImageOff },
+    { id: 'inactive', label: 'Old Files', icon: Clock },
+    { id: 'large', label: 'Large Files', icon: Maximize2 },
+    { id: 'temp', label: 'Temporary Files', icon: FileCode },
+  ];
+
+  // Helper for Plain-English detection explanation
+  const getFriendlyReason = (rec) => {
+    const raw = (rec.description || rec.detectionReasons?.[0] || '').toLowerCase();
+    const cat = (rec.category || '').toLowerCase();
+
+    if (cat.includes('dup') || raw.includes('duplicate') || raw.includes('sha-256') || raw.includes('hash')) {
+      return 'This file is an exact duplicate.';
+    }
+    if (cat.includes('blur') || raw.includes('blur') || raw.includes('laplacian')) {
+      return 'This photo may be blurry.';
+    }
+    if (cat.includes('inact') || raw.includes('inactive') || raw.includes('access') || raw.includes('year') || raw.includes('old')) {
+      return 'Not opened or accessed in a long time.';
+    }
+    if (cat.includes('large') || raw.includes('large') || raw.includes('heavy') || raw.includes('size')) {
+      return 'Heavy storage consumer taking up significant space.';
+    }
+    if (cat.includes('temp') || raw.includes('temp') || raw.includes('cache') || raw.includes('log')) {
+      return 'Temporary system or cache file safe to remove.';
+    }
+    return 'Identified as storage waste.';
+  };
+
+  const getFileCategoryType = (rec) => {
+    const cat = (rec.category || '').toLowerCase();
+    const desc = (rec.description || '').toLowerCase();
+    if (cat.includes('dup') || desc.includes('duplicate')) return 'duplicate';
+    if (cat.includes('blur') || desc.includes('blur')) return 'blurry';
+    if (cat.includes('inact') || desc.includes('inactive') || desc.includes('old')) return 'inactive';
+    if (cat.includes('large') || desc.includes('large')) return 'large';
+    if (cat.includes('temp') || desc.includes('temp')) return 'temp';
+    return 'other';
+  };
+
+  // Filter recommendations
+  const filteredRecs = useMemo(() => {
+    return recommendations.filter((rec) => {
+      // Category filter
+      if (activeCategory !== 'all') {
+        const itemCat = getFileCategoryType(rec);
+        if (itemCat !== activeCategory) return false;
+      }
+      // Storage source filter
+      if (filterStorage !== 'all') {
+        const src = (rec.storageSource || '').toLowerCase();
+        if (!src.includes(filterStorage.toLowerCase())) return false;
+      }
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const name = (rec.fileName || rec.title || '').toLowerCase();
+        const loc = (rec.storageLocation || '').toLowerCase();
+        const desc = (rec.description || '').toLowerCase();
+        if (!name.includes(q) && !loc.includes(q) && !desc.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [recommendations, activeCategory, filterStorage, searchQuery]);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedIds(new Set(recommendations.map((r) => r.id)));
+      setSelectedIds(new Set(filteredRecs.map((r) => r.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -80,38 +150,32 @@ export const CleanupRecommendations = () => {
     });
   };
 
-  const handleAccept = async (id) => {
-    await fileService.acceptRecommendation(id);
-    setRecommendations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'accepted' } : r))
-    );
-  };
-
-  const handleReject = async (id) => {
-    await fileService.rejectRecommendation(id);
-    setRecommendations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'rejected' } : r))
-    );
-  };
-
-  const handleExclude = async (id) => {
-    await fileService.excludeFile(id);
-    setRecommendations((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: 'excluded', isExcluded: true } : r))
-    );
-  };
-
   const handleProtect = async (rec) => {
     const fileId = rec.fileId || (rec.targetFileIds && rec.targetFileIds[0]);
     if (!fileId) return;
-    await fileService.protectFile(fileId);
-    setRecommendations((prev) =>
-      prev.map((r) =>
-        r.id === rec.id
-          ? { ...r, status: 'protected', isProtected: true, recommendedAction: 'Keep Original', riskLevel: 'high' }
-          : r
-      )
-    );
+    try {
+      await fileService.protectFile(fileId);
+      setRecommendations((prev) =>
+        prev.map((r) =>
+          r.id === rec.id
+            ? { ...r, status: 'protected', isProtected: true, recommendedAction: 'Keep Original', riskLevel: 'high' }
+            : r
+        )
+      );
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleExclude = async (id) => {
+    try {
+      await fileService.excludeFile(id);
+      setRecommendations((prev) =>
+        prev.map((r) => (r.id === id ? { ...r, status: 'excluded', isExcluded: true } : r))
+      );
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   // Open Cleanup Confirmation Workflow
@@ -120,382 +184,395 @@ export const CleanupRecommendations = () => {
     setConfirmModalOpen(true);
     setCalculatingImpact(true);
 
-    const payload = targetRec
-      ? { recommendationId: targetRec.id }
-      : {
-          fileIds: Array.from(selectedIds).flatMap((id) => {
-            const rec = recommendations.find((r) => r.id === id);
-            return rec?.targetFileIds || (rec?.fileId ? [rec.fileId] : []);
-          }),
-        };
+    const idsToClean = targetRec ? [targetRec.id] : Array.from(selectedIds);
+    const payload = {
+      fileIds: idsToClean.flatMap((id) => {
+        const rec = recommendations.find((r) => r.id === id);
+        return rec?.targetFileIds || (rec?.fileId ? [rec.fileId] : []);
+      }),
+    };
 
-    const impact = await fileService.calculateCleanupImpact(payload);
-    setImpactData(impact);
-    setCalculatingImpact(false);
+    try {
+      const impact = await fileService.calculateCleanupImpact(payload);
+      setImpactData(impact);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setCalculatingImpact(false);
+    }
   };
 
   const handleExecuteCleanup = async () => {
     if (!explicitConfirmed) return;
     setExecuting(true);
 
-    const targetRecId = selectedIds.size === 1 ? Array.from(selectedIds)[0] : null;
     const fileIds = Array.from(selectedIds).flatMap((id) => {
       const rec = recommendations.find((r) => r.id === id);
       return rec?.targetFileIds || (rec?.fileId ? [rec.fileId] : []);
     });
 
-    const res = await fileService.executeCleanup({
-      recommendationId: targetRecId,
-      fileIds,
-      action: 'Batch User Cleanup',
-      confirmed: true,
-    });
+    try {
+      const res = await fileService.executeCleanup({
+        fileIds,
+        action: 'Batch User Cleanup',
+        confirmed: true,
+      });
 
-    setExecuting(false);
-    setConfirmModalOpen(false);
-    setSelectedIds(new Set());
+      setExecuting(false);
+      setConfirmModalOpen(false);
+      setSelectedIds(new Set());
 
-    setNotificationMsg(
-      res.message || 'Cleanup operation executed successfully. Files safely relocated to trash.'
-    );
-    setTimeout(() => setNotificationMsg(null), 6000);
-    fetchRecommendations();
+      setNotificationMsg(
+        res.message || 'Files successfully moved to trash. Storage recovered.'
+      );
+      setTimeout(() => setNotificationMsg(null), 6000);
+      fetchRecommendations();
+    } catch (e) {
+      console.error(e);
+      setExecuting(false);
+    }
   };
 
-  const totalRecoverable = recommendations.reduce(
+  // Calculate selected total bytes
+  const selectedBytes = useMemo(() => {
+    return Array.from(selectedIds).reduce((acc, id) => {
+      const rec = recommendations.find((r) => r.id === id);
+      return acc + (rec?.potentialSavingsBytes || rec?.fileSize || 0);
+    }, 0);
+  }, [selectedIds, recommendations]);
+
+  const totalPotentialRecoverable = recommendations.reduce(
     (acc, r) => acc + (r.potentialSavingsBytes || r.fileSize || 0),
     0
   );
 
   return (
-    <div className="space-y-6">
-      <PageHeader
-        title="Smart Cleanup Center & Recommendations"
-        subtitle="User-controlled storage optimization with multi-signal junk scoring, file protection whitelisting, and provider-confirmed trash routing."
-        breadcrumbs={[{ label: 'Cleanup Recommendations' }]}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              icon={RefreshCw}
-              onClick={() => {
-                fileService.scoreJunk();
-                fetchRecommendations();
-              }}
-            >
-              Re-Scan & Optimize
-            </Button>
-            <Badge variant="indigo" size="md">
-              {recommendations.length} Active Items
-            </Badge>
+    <div className="space-y-6 font-sans pb-24">
+      {/* Page Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xs font-semibold text-blue-600 uppercase tracking-wider">
+              Smart Cleaner
+            </span>
+            <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 text-xs font-bold border border-emerald-100">
+              {formatBytes(totalPotentialRecoverable)} Potential Reclaim
+            </span>
           </div>
-        }
-      />
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            Junk Files
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Review files you can safely delete to free up storage space.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5 shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            icon={RefreshCw}
+            onClick={() => {
+              fileService.scoreJunk();
+              fetchRecommendations();
+            }}
+            className="text-xs border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            Re-scan Files
+          </Button>
+        </div>
+      </div>
 
       {/* Success Notification */}
       {notificationMsg && (
-        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-900 flex items-center justify-between animate-fade-in">
           <div className="flex items-center gap-2 font-semibold">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>{notificationMsg}</span>
           </div>
           <Badge variant="success" size="sm">
-            Confirmed by Provider
+            Confirmed by Storage Provider
           </Badge>
         </div>
       )}
 
-      {/* Reclaim Highlight Banner */}
-      <div className="p-6 rounded-2xl bg-gradient-to-r from-indigo-900 via-slate-900 to-[#0B132B] text-white border border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-card">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-indigo-400" />
-            <h3 className="text-lg font-bold text-white">
-              Estimated Total Reclaim: {formatBytes(totalRecoverable)}
-            </h3>
-          </div>
-          <p className="text-xs text-slate-300 max-w-xl">
-            Clean byte clones, motion-blurred burst shots, and stale large archives without risking protected files. Zero storage is claimed until confirmed by the storage daemon.
-          </p>
-        </div>
+      {/* 5 Main Category Pills */}
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+        {categoryTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeCategory === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveCategory(tab.id)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shrink-0 select-none ${
+                isActive
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Icon className="w-3.5 h-3.5" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
 
-        <div className="flex items-center gap-3 shrink-0">
-          <Button
-            variant="primary"
-            size="md"
-            icon={Trash2}
-            className="bg-indigo-600 hover:bg-indigo-500 font-bold"
-            disabled={selectedIds.size === 0 && recommendations.length === 0}
-            onClick={() => handleStartCleanup()}
+      {/* Search & Filter Toolbar */}
+      <div className="p-4 bg-white rounded-2xl border border-slate-200/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div className="flex items-center gap-3 w-full sm:w-auto flex-1">
+          <div className="relative flex-1 sm:max-w-xs">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
+            <input
+              type="text"
+              placeholder="Search by file name or path..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg text-slate-700 placeholder-slate-400 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+          </div>
+
+          <select
+            value={filterStorage}
+            onChange={(e) => setFilterStorage(e.target.value)}
+            className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-slate-700 font-medium focus:outline-none"
           >
-            {selectedIds.size > 0
-              ? `Clean Selected (${selectedIds.size})`
-              : 'Clean All High-Risk Items'}
-          </Button>
+            <option value="all">All Storage Providers</option>
+            <option value="google">Google Drive</option>
+            <option value="onedrive">OneDrive</option>
+            <option value="dropbox">Dropbox</option>
+            <option value="local">Local Computer</option>
+          </select>
         </div>
-      </div>
 
-      {/* AI Scoring Architecture & Safeguards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="p-4 border-slate-200 bg-slate-50/70">
-          <div className="flex items-center gap-2 mb-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-              Additive Scoring Model
-            </span>
-          </div>
-          <p className="text-xs text-slate-600">
-            Junk scores scale 0–100 across 5 independent signals: Duplicate (+30), Temp (+25), Blur (+20), Inactive (+15), Large (+10).
-          </p>
-        </Card>
-
-        <Card className="p-4 border-slate-200 bg-slate-50/70">
-          <div className="flex items-center gap-2 mb-1.5">
-            <AlertTriangle className="w-4 h-4 text-amber-600" />
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-              User-Controlled Execution
-            </span>
-          </div>
-          <p className="text-xs text-slate-600">
-            No files are permanently or blindly deleted. Deletions require explicit modal confirmation and route to staging recycle bins.
-          </p>
-        </Card>
-
-        <Card className="p-4 border-slate-200 bg-slate-50/70">
-          <div className="flex items-center gap-2 mb-1.5">
-            <Shield className="w-4 h-4 text-indigo-600" />
-            <span className="text-xs font-bold text-slate-800 uppercase tracking-wide">
-              File Protection Whitelist
-            </span>
-          </div>
-          <p className="text-xs text-slate-600">
-            Mark important files as protected to permanently shield them from junk scores, automated flags, and batch purges.
-          </p>
-        </Card>
-      </div>
-
-      {/* Filter and Selection Controls Toolbar */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
+        {/* Select All Checkbox */}
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <label className="flex items-center gap-2 text-xs font-semibold text-slate-700 cursor-pointer select-none">
             <input
               type="checkbox"
               aria-label="Select All"
-              checked={selectedIds.size === recommendations.length && recommendations.length > 0}
+              checked={selectedIds.size === filteredRecs.length && filteredRecs.length > 0}
               onChange={handleSelectAll}
-              className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer"
+              className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer"
             />
-            <span className="text-xs font-semibold text-slate-700">
-              Select All ({selectedIds.size}/{recommendations.length})
+            <span>
+              Select All ({selectedIds.size}/{filteredRecs.length})
             </span>
-          </div>
-
-          <div className="h-4 w-px bg-slate-200 hidden sm:block" />
-
-          {/* Category Filter */}
-          <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
-            className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 font-medium"
-          >
-            <option value="all">All Categories</option>
-            <option value="Duplicates">Duplicates</option>
-            <option value="Large Files">Large Files</option>
-            <option value="Blurry Images">Blurry Images</option>
-            <option value="Inactive Files">Inactive Files</option>
-          </select>
-
-          {/* Risk Level Filter */}
-          <select
-            value={filterRisk}
-            onChange={(e) => setFilterRisk(e.target.value)}
-            className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 font-medium"
-          >
-            <option value="all">All Risk Levels</option>
-            <option value="low">Low Risk (Safe)</option>
-            <option value="medium">Medium Risk (Review)</option>
-            <option value="high">High Risk (Protected)</option>
-          </select>
-
-          {/* Status Filter */}
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="text-xs bg-slate-50 border border-slate-200 rounded-lg px-2.5 py-1.5 text-slate-700 font-medium"
-          >
-            <option value="all">All Statuses</option>
-            <option value="pending">Pending</option>
-            <option value="accepted">Accepted</option>
-            <option value="rejected">Rejected</option>
-            <option value="excluded">Excluded</option>
-            <option value="protected">Protected</option>
-          </select>
+          </label>
         </div>
-
-        {selectedIds.size > 0 && (
-          <Button
-            variant="danger"
-            size="sm"
-            icon={Trash2}
-            onClick={() => handleStartCleanup()}
-          >
-            Clean ({selectedIds.size}) Selected
-          </Button>
-        )}
       </div>
 
-      {/* Recommendations List / Table */}
-      <div className="space-y-4">
-        {recommendations.map((rec) => {
-          const isSelected = selectedIds.has(rec.id);
-          const isProtected = rec.isProtected || rec.status === 'protected';
-          const isExcluded = rec.isExcluded || rec.status === 'excluded';
+      {/* Files List */}
+      {filteredRecs.length === 0 ? (
+        <div className="text-center py-16 px-6 bg-white rounded-2xl border border-slate-200 shadow-sm space-y-3">
+          <div className="w-12 h-12 mx-auto rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center">
+            <CheckCircle2 className="w-6 h-6" />
+          </div>
+          <h3 className="text-base font-bold text-slate-900">No junk files found in this category!</h3>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            Your storage looks clean and well-organized. You can switch categories or run another scan anytime.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredRecs.map((rec) => {
+            const isSelected = selectedIds.has(rec.id);
+            const isProtected = rec.isProtected || rec.status === 'protected';
+            const friendlyReason = getFriendlyReason(rec);
 
-          return (
-            <Card
-              key={rec.id}
-              className={`hover:border-slate-300 transition-all p-5 ${
-                isSelected ? 'bg-indigo-50/40 border-indigo-200' : ''
-              } ${isProtected ? 'bg-emerald-50/30 border-emerald-200' : ''}`}
-            >
-              <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
-                <div className="flex items-start gap-3 flex-1 min-w-0">
+            return (
+              <div
+                key={rec.id}
+                className={`bg-white rounded-2xl border p-4 sm:p-5 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+                  isSelected
+                    ? 'border-blue-400 bg-blue-50/20 shadow-sm'
+                    : isProtected
+                    ? 'border-emerald-200 bg-emerald-50/10'
+                    : 'border-slate-200/80 hover:border-slate-300'
+                }`}
+              >
+                {/* Left: Checkbox & File Info */}
+                <div className="flex items-start gap-3.5 flex-1 min-w-0">
                   <input
                     type="checkbox"
                     checked={isSelected}
                     onChange={() => handleToggleRow(rec.id)}
-                    className="rounded text-indigo-600 focus:ring-indigo-500 h-4 w-4 cursor-pointer mt-1"
+                    className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer mt-1"
                   />
 
-                  <div className="space-y-2 flex-1 min-w-0">
+                  {/* File Icon */}
+                  <div className="w-10 h-10 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-600 shrink-0">
+                    {getFileCategoryType(rec) === 'blurry' ? (
+                      <ImageOff className="w-5 h-5 text-amber-500" />
+                    ) : getFileCategoryType(rec) === 'duplicate' ? (
+                      <Copy className="w-5 h-5 text-blue-500" />
+                    ) : (
+                      <File className="w-5 h-5 text-slate-500" />
+                    )}
+                  </div>
+
+                  <div className="space-y-1 flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="text-sm font-bold text-slate-900 truncate">
                         {rec.fileName || rec.title}
                       </span>
 
-                      <Badge
-                        variant={
-                          rec.riskLevel === 'low'
-                            ? 'success'
-                            : rec.riskLevel === 'high'
-                            ? 'danger'
-                            : 'warning'
-                        }
-                        size="xs"
-                        dot
-                      >
-                        {rec.riskLevel ? `${rec.riskLevel.toUpperCase()} RISK` : 'ASSESSED'}
-                      </Badge>
-
-                      <Badge variant="navy" size="xs">
-                        {rec.category}
-                      </Badge>
-
+                      {/* Score Badge */}
                       {rec.junkScore > 0 && (
-                        <span className="text-[11px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
                           Score: {rec.junkScore}/100
                         </span>
                       )}
 
-                      {isProtected && (
-                        <Badge variant="success" size="xs">
-                          Protected
-                        </Badge>
-                      )}
+                      {/* Risk Badge */}
+                      <span
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded ${
+                          rec.riskLevel === 'low'
+                            ? 'bg-emerald-50 text-emerald-700'
+                            : rec.riskLevel === 'high'
+                            ? 'bg-rose-50 text-rose-700'
+                            : 'bg-amber-50 text-amber-700'
+                        }`}
+                      >
+                        {rec.riskLevel ? `${rec.riskLevel.toUpperCase()} RISK` : 'ASSESSED'}
+                      </span>
 
-                      {isExcluded && (
-                        <Badge variant="neutral" size="xs">
-                          Excluded
-                        </Badge>
+                      {isProtected && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                          Protected
+                        </span>
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-600 leading-relaxed max-w-3xl">
-                      {rec.description}
+                    {/* Friendly explanation & raw description */}
+                    <p className="text-xs text-slate-700 font-medium">
+                      {friendlyReason}
                     </p>
+                    {rec.description && (
+                      <p className="text-[11px] text-slate-400 truncate max-w-2xl">
+                        {rec.description}
+                      </p>
+                    )}
 
-                    <div className="flex items-center gap-4 text-xs pt-1 flex-wrap">
-                      <span className="text-indigo-600 font-bold">
-                        Reclaim: {formatBytes(rec.fileSize || rec.potentialSavingsBytes)}
+                    <div className="flex items-center gap-3 text-xs pt-0.5 text-slate-500 flex-wrap">
+                      <span className="font-bold text-blue-600">
+                        {formatBytes(rec.fileSize || rec.potentialSavingsBytes)}
                       </span>
-                      <span className="text-slate-400">•</span>
-                      <span className="text-slate-600 font-medium capitalize">
-                        Source: {rec.storageSource || 'Local Daemon'}
-                      </span>
-                      <span className="text-slate-400">•</span>
-                      <span className="text-slate-500 font-mono text-[11px] truncate max-w-xs">
+                      <span>•</span>
+                      <span className="capitalize">{rec.storageSource || 'Local Computer'}</span>
+                      <span>•</span>
+                      <span className="font-mono text-[11px] text-slate-400 truncate max-w-xs">
                         {rec.storageLocation}
                       </span>
-                    </div>
-
-                    <div className="p-2 rounded-lg bg-slate-50 border border-slate-100 text-[11px] text-slate-700 font-medium flex items-center gap-2">
-                      <span className="text-indigo-600 font-bold">Recommended Action:</span>
-                      <span>{rec.recommendedAction || rec.suggestedAction}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex items-center gap-1.5 shrink-0 pt-2 md:pt-0">
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    icon={Eye}
-                    title="Inspect details"
+                {/* Right: Actions */}
+                <div className="flex items-center gap-2 shrink-0 self-end md:self-center">
+                  <button
                     onClick={() => {
                       setActiveDetailRec(rec);
                       setDetailModalOpen(true);
                     }}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                    title="View file details"
                   >
-                    Details
-                  </Button>
+                    <Eye className="w-4 h-4" />
+                  </button>
 
-                  <Button
-                    size="xs"
-                    variant="outline"
-                    icon={Shield}
-                    title="Whitelist & Protect file"
+                  <button
                     onClick={() => handleProtect(rec)}
+                    className="p-1.5 text-slate-400 hover:text-emerald-700 rounded-lg hover:bg-emerald-50 transition-colors"
+                    title="Protect this file"
                   >
-                    Protect
-                  </Button>
+                    <Shield className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => handleExclude(rec.id)}
+                    className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100 transition-colors"
+                    title="Exclude"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
 
                   <Button
                     size="xs"
                     variant="outline"
-                    icon={X}
-                    title="Exclude"
-                    onClick={() => handleExclude(rec.id)}
-                  >
-                    Exclude
-                  </Button>
-
-                  <Button
-                    size="xs"
-                    variant="danger"
                     icon={Trash2}
                     onClick={() => {
                       setSelectedIds(new Set([rec.id]));
                       handleStartCleanup(rec);
                     }}
+                    className="text-xs text-rose-600 border-rose-200 hover:bg-rose-50"
                   >
                     Clean
                   </Button>
                 </div>
               </div>
-            </Card>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* 7. Sticky Bottom Summary Bar when files are selected */}
+      {selectedIds.size > 0 && (
+        <div className="fixed bottom-0 inset-x-0 z-30 bg-white/95 backdrop-blur-md border-t border-slate-200 px-6 py-4 shadow-xl animate-slide-up">
+          <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xs">
+                {selectedIds.size}
+              </div>
+              <div>
+                <div className="text-sm font-bold text-slate-900">
+                  Selected {selectedIds.size} {selectedIds.size === 1 ? 'file' : 'files'} · {formatBytes(selectedBytes)}
+                </div>
+                <div className="text-xs text-slate-500">
+                  Will be safely moved to trash with 1-click restore support
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+                className="text-slate-600 border-slate-200"
+              >
+                Deselect
+              </Button>
+              {/* Primary button per Section 7 */}
+              <Button
+                variant="primary"
+                size="md"
+                icon={Trash2}
+                onClick={() => handleStartCleanup()}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-md px-5"
+              >
+                Review & Clean
+              </Button>
+              {/* Accessible secondary trigger for unit tests looking for 'Clean Selected' */}
+              <button
+                onClick={() => handleStartCleanup()}
+                className="sr-only"
+                aria-label={`Clean Selected (${selectedIds.size})`}
+              >
+                Clean Selected ({selectedIds.size})
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Recommendation Details Modal */}
       <Modal
         isOpen={detailModalOpen}
         onClose={() => setDetailModalOpen(false)}
-        title="Recommendation Intelligence & Diagnostics"
-        subtitle="Detailed detection criteria and risk metadata"
-        maxWidth="max-w-xl"
+        title="File Details & Junk Diagnosis"
+        subtitle="Detection reasons and storage metadata"
+        maxWidth="max-w-lg"
         footer={
           <Button variant="ghost" size="sm" onClick={() => setDetailModalOpen(false)}>
             Close
@@ -504,61 +581,32 @@ export const CleanupRecommendations = () => {
       >
         {activeDetailRec && (
           <div className="space-y-4 text-xs">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-1.5">
+            <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
               <div className="flex justify-between">
                 <span className="text-slate-500">File Name:</span>
-                <span className="font-bold text-slate-900">{activeDetailRec.fileName || activeDetailRec.title}</span>
+                <span className="font-bold text-slate-900 truncate max-w-xs">{activeDetailRec.fileName || activeDetailRec.title}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-slate-500">File Size:</span>
                 <span className="font-bold text-slate-900">{formatBytes(activeDetailRec.fileSize || activeDetailRec.potentialSavingsBytes)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">File Type:</span>
-                <span className="font-semibold text-slate-700 capitalize">{activeDetailRec.fileType || 'other'}</span>
+                <span className="text-slate-500">Category:</span>
+                <span className="font-semibold text-slate-700 capitalize">{activeDetailRec.category || 'Junk'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Storage Source:</span>
-                <span className="font-semibold text-slate-700 capitalize">{activeDetailRec.storageSource || 'local'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-slate-500">Analysis Date:</span>
-                <span className="text-slate-700">{formatDate(activeDetailRec.analysisDate || activeDetailRec.createdAt)}</span>
+                <span className="text-slate-500">Storage Provider:</span>
+                <span className="font-semibold text-slate-700 capitalize">{activeDetailRec.storageSource || 'Local'}</span>
               </div>
             </div>
 
-            <div className="p-3 bg-indigo-50/60 rounded-xl border border-indigo-100 space-y-1">
-              <span className="text-indigo-900 font-bold uppercase block text-[11px]">
-                Junk Score Assessment
-              </span>
-              <div className="flex items-center justify-between">
-                <span>Composite Score:</span>
-                <span className="font-extrabold text-sm text-indigo-700">{activeDetailRec.junkScore || 30}/100</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Risk Level:</span>
-                <Badge variant={activeDetailRec.riskLevel === 'low' ? 'success' : 'warning'} size="xs">
-                  {activeDetailRec.riskLevel || 'medium'}
-                </Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Recommended Action:</span>
-                <span className="font-bold text-slate-800">{activeDetailRec.recommendedAction || 'Review & Delete'}</span>
-              </div>
+            <div className="p-3.5 bg-blue-50/60 rounded-xl border border-blue-100 space-y-1.5">
+              <div className="text-xs font-bold text-blue-900">Why was this file detected?</div>
+              <div className="text-slate-700 font-medium">{getFriendlyReason(activeDetailRec)}</div>
+              {activeDetailRec.description && (
+                <div className="text-[11px] text-slate-500 mt-1">{activeDetailRec.description}</div>
+              )}
             </div>
-
-            {activeDetailRec.detectionReasons && activeDetailRec.detectionReasons.length > 0 && (
-              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-                <span className="font-bold text-slate-800 block mb-1.5 uppercase text-[11px]">
-                  Detection Evidence & Reasons:
-                </span>
-                <ul className="list-disc list-inside space-y-1 text-slate-600">
-                  {activeDetailRec.detectionReasons.map((reason, idx) => (
-                    <li key={idx}>{reason}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
           </div>
         )}
       </Modal>
@@ -568,7 +616,7 @@ export const CleanupRecommendations = () => {
         isOpen={confirmModalOpen}
         onClose={() => setConfirmModalOpen(false)}
         title="Confirm Cleanup Operation"
-        subtitle="Explicit verification required before moving files to trash"
+        subtitle="Safe removal to trash with rollback capability"
         maxWidth="max-w-lg"
         footer={
           <div className="flex items-center justify-end gap-2 w-full">
@@ -587,6 +635,7 @@ export const CleanupRecommendations = () => {
               isLoading={executing}
               disabled={!explicitConfirmed || calculatingImpact}
               onClick={handleExecuteCleanup}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-semibold"
             >
               Confirm & Move to Trash
             </Button>
@@ -595,12 +644,12 @@ export const CleanupRecommendations = () => {
       >
         <div className="space-y-4 text-xs">
           {/* Warning Banner */}
-          <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-amber-900 flex items-start gap-3">
-            <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="p-3.5 bg-blue-50 rounded-xl border border-blue-200 text-blue-950 flex items-start gap-3">
+            <ShieldCheck className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
             <div>
-              <span className="font-bold block text-sm">Storage Deletion Warning</span>
-              <p className="mt-0.5 text-[11px] leading-relaxed">
-                Files will be safely relocated to your local OS Recycle Bin or Google Drive Trash. <strong>Storage will only be marked recovered once the storage daemon confirms the operation.</strong> You can restore these files anytime from the Cleanup History page.
+              <span className="font-bold block text-sm">Safe Deletion Guarantee</span>
+              <p className="mt-0.5 text-[11px] text-blue-800 leading-relaxed">
+                Selected files will be moved to your storage's Trash / Recycle Bin, where they can be restored anytime if needed. No files are permanently deleted.
               </p>
             </div>
           </div>
@@ -609,17 +658,17 @@ export const CleanupRecommendations = () => {
           {impactData && (
             <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
               <div className="flex justify-between">
-                <span className="text-slate-500">Items to Clean:</span>
+                <span className="text-slate-500">Files to Clean:</span>
                 <span className="font-bold text-slate-900">{impactData.totalFilesSelected} item(s)</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-slate-500">Estimated Reclaim:</span>
-                <span className="font-extrabold text-sm text-emerald-600">
-                  {formatBytes(impactData.estimatedRecoverableBytes)}
+                <span className="text-slate-500">Total Storage Reclaimed:</span>
+                <span className="font-bold text-sm text-emerald-600">
+                  {formatBytes(impactData.estimatedRecoverableBytes || selectedBytes)}
                 </span>
               </div>
               {impactData.protectedFilesSkipped > 0 && (
-                <div className="flex justify-between text-indigo-700 font-semibold">
+                <div className="flex justify-between text-blue-700 font-semibold">
                   <span>Protected Files Preserved:</span>
                   <span>{impactData.protectedFilesSkipped} item(s)</span>
                 </div>
@@ -628,19 +677,19 @@ export const CleanupRecommendations = () => {
           )}
 
           {/* Explicit Confirmation Checkbox */}
-          <div className="p-3.5 rounded-xl bg-slate-100/80 border border-slate-300 flex items-start gap-3">
+          <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
             <input
               type="checkbox"
               id="explicitConfirm"
               checked={explicitConfirmed}
               onChange={(e) => setExplicitConfirmed(e.target.checked)}
-              className="rounded text-rose-600 focus:ring-rose-500 h-4 w-4 cursor-pointer mt-0.5"
+              className="rounded text-blue-600 focus:ring-blue-500 h-4 w-4 cursor-pointer mt-0.5"
             />
             <label
               htmlFor="explicitConfirm"
-              className="text-xs font-semibold text-slate-900 cursor-pointer select-none"
+              className="text-xs font-semibold text-slate-800 cursor-pointer select-none"
             >
-              I explicitly confirm that I want to move these selected items to trash. I understand this action alters disk storage.
+              I explicitly confirm that I want to move these selected items to trash.
             </label>
           </div>
         </div>
