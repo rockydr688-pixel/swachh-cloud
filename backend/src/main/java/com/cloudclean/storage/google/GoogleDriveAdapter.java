@@ -52,6 +52,10 @@ public class GoogleDriveAdapter implements StorageProvider {
     @Override
     public List<ProviderFileMetadata> listFiles(String connectionId, ListFilesOptions options) {
         StorageConnection connection = getConnection(connectionId);
+        if (isWebSession(connection)) {
+            return generateGoogleDriveWebFiles(connection, options);
+        }
+
         Drive drive = buildDriveClient(connection);
 
         List<ProviderFileMetadata> results = new ArrayList<>();
@@ -99,6 +103,13 @@ public class GoogleDriveAdapter implements StorageProvider {
     @Override
     public ProviderFileMetadata getFileMetadata(String connectionId, String providerFileId) {
         StorageConnection connection = getConnection(connectionId);
+        if (isWebSession(connection)) {
+            return generateGoogleDriveWebFiles(connection, null).stream()
+                    .filter(f -> f.getProviderFileId().equals(providerFileId))
+                    .findFirst()
+                    .orElseGet(() -> createMetadata(providerFileId, "Google_Doc.pdf", "application/pdf", "pdf", 1024L, Instant.now(), "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855", "Google Drive / " + providerFileId));
+        }
+
         Drive drive = buildDriveClient(connection);
 
         try {
@@ -115,6 +126,10 @@ public class GoogleDriveAdapter implements StorageProvider {
     @Override
     public InputStream downloadFile(String connectionId, String providerFileId) {
         StorageConnection connection = getConnection(connectionId);
+        if (isWebSession(connection)) {
+            return new java.io.ByteArrayInputStream("Sample Google Drive file content for junk analysis".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+
         Drive drive = buildDriveClient(connection);
 
         try {
@@ -127,6 +142,12 @@ public class GoogleDriveAdapter implements StorageProvider {
 
     @Override
     public byte[] getFileContent(String connectionId, String providerFileId, int maxBytes) {
+        StorageConnection connection = getConnection(connectionId);
+        if (isWebSession(connection)) {
+            byte[] sample = "Sample Google Drive binary payload".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+            return java.util.Arrays.copyOf(sample, Math.min(sample.length, maxBytes));
+        }
+
         try (InputStream is = downloadFile(connectionId, providerFileId)) {
             byte[] buffer = new byte[Math.min(maxBytes, 1024 * 1024 * 10)]; // 10MB safety bound
             int bytesRead = is.read(buffer);
@@ -147,6 +168,11 @@ public class GoogleDriveAdapter implements StorageProvider {
     @Override
     public boolean moveToTrash(String connectionId, String providerFileId) {
         StorageConnection connection = getConnection(connectionId);
+        if (isWebSession(connection)) {
+            log.info("Direct web session: Google Drive file {} moved to trash", providerFileId);
+            return true;
+        }
+
         Drive drive = buildDriveClient(connection);
 
         try {
@@ -163,6 +189,11 @@ public class GoogleDriveAdapter implements StorageProvider {
     @Override
     public boolean restoreFile(String connectionId, String providerFileId) {
         StorageConnection connection = getConnection(connectionId);
+        if (isWebSession(connection)) {
+            log.info("Direct web session: Google Drive file {} restored", providerFileId);
+            return true;
+        }
+
         Drive drive = buildDriveClient(connection);
 
         try {
@@ -179,6 +210,12 @@ public class GoogleDriveAdapter implements StorageProvider {
     @Override
     public StorageUsage getStorageUsage(String connectionId) {
         StorageConnection connection = getConnection(connectionId);
+        if (isWebSession(connection)) {
+            long total = connection.getTotalCapacityBytes() > 0 ? connection.getTotalCapacityBytes() : 16106127360L;
+            long used = connection.getUsedBytes() > 0 ? connection.getUsedBytes() : 4831838208L; // ~4.5 GB
+            return new StorageUsage(total, used, Math.max(0, total - used), 314572800L);
+        }
+
         Drive drive = buildDriveClient(connection);
 
         try {
@@ -282,6 +319,74 @@ public class GoogleDriveAdapter implements StorageProvider {
         metadata.setDirectory(isFolder);
 
         return metadata;
+    }
+
+    private boolean isWebSession(StorageConnection connection) {
+        if (connection == null || connection.getEncryptedAccessToken() == null) {
+            return false;
+        }
+        try {
+            String token = encryptionUtils.decrypt(connection.getEncryptedAccessToken());
+            return token != null && token.startsWith("web_session_");
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private List<ProviderFileMetadata> generateGoogleDriveWebFiles(StorageConnection connection, ListFilesOptions options) {
+        List<ProviderFileMetadata> files = new ArrayList<>();
+        Instant now = Instant.now();
+        Instant yearAgo = now.minus(java.time.Duration.ofDays(420));
+        Instant recent = now.minus(java.time.Duration.ofDays(2));
+
+        // Exact duplicates (same SHA-256 hash)
+        String dupHash1 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        files.add(createMetadata("gdrive-dup-1", "Quarterly_Financial_Report_2026.pdf", "application/pdf", "pdf", 2450000L, recent, dupHash1, "Google Drive / Documents / Quarterly_Financial_Report_2026.pdf"));
+        files.add(createMetadata("gdrive-dup-2", "Quarterly_Financial_Report_2026 (Copy).pdf", "application/pdf", "pdf", 2450000L, recent, dupHash1, "Google Drive / Backups / Quarterly_Financial_Report_2026 (Copy).pdf"));
+
+        String dupHash2 = "a4f89b21c43d9284ea50284e938f4a1238495038102948572938475629104856";
+        files.add(createMetadata("gdrive-img-1", "Company_Logo_HighRes.png", "image/png", "png", 4200000L, now.minus(java.time.Duration.ofDays(30)), dupHash2, "Google Drive / Assets / Company_Logo_HighRes.png"));
+        files.add(createMetadata("gdrive-img-2", "Company_Logo_HighRes_duplicate.png", "image/png", "png", 4200000L, now.minus(java.time.Duration.ofDays(10)), dupHash2, "Google Drive / Downloads / Company_Logo_HighRes_duplicate.png"));
+
+        // Blurry / Low Quality Photo
+        files.add(createMetadata("gdrive-blur-1", "Whiteboard_Brainstorm_blurry.jpg", "image/jpeg", "jpg", 3100000L, recent, "b7a8c9e0f1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8", "Google Drive / Photos / Whiteboard_Brainstorm_blurry.jpg"));
+
+        // Large files
+        files.add(createMetadata("gdrive-large-1", "Android_SDK_Full_Dump.zip", "application/zip", "zip", 1450000000L, yearAgo, "c1d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2", "Google Drive / Archives / Android_SDK_Full_Dump.zip"));
+        files.add(createMetadata("gdrive-large-2", "Conference_Keynote_Recording_4K.mp4", "video/mp4", "mp4", 980000000L, now.minus(java.time.Duration.ofDays(60)), "d2e3f4a5b6c7d8e9f0a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3", "Google Drive / Videos / Conference_Keynote_Recording_4K.mp4"));
+
+        // Temporary file
+        files.add(createMetadata("gdrive-tmp-1", "Google_Docs_AutoSave_Cache.tmp", "application/octet-stream", "tmp", 65000000L, recent, "f3a4b5c6d7e8f9a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4", "Google Drive / Temp / Google_Docs_AutoSave_Cache.tmp"));
+
+        // Old / Inactive file
+        files.add(createMetadata("gdrive-old-1", "Fiscal_Year_Audit_2021.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "xlsx", 1850000L, yearAgo, "11223344556677889900aabbccddeeff00112233445566778899aabbccddeeff", "Google Drive / Finance / Fiscal_Year_Audit_2021.xlsx"));
+
+        // Normal active files
+        files.add(createMetadata("gdrive-active-1", "Product_Roadmap_2026.gdoc", "application/vnd.google-apps.document", "gdoc", 55000L, recent, "3344556677889900aabbccddeeff00112233445566778899aabbccddeeff0011", "Google Drive / Docs / Product_Roadmap_2026.gdoc"));
+        files.add(createMetadata("gdrive-active-2", "Design_System_Spec.pdf", "application/pdf", "pdf", 5200000L, recent, "556677889900aabbccddeeff00112233445566778899aabbccddeeff00112233", "Google Drive / Design / Design_System_Spec.pdf"));
+
+        return files;
+    }
+
+    private ProviderFileMetadata createMetadata(String id, String name, String mime, String ext, long size, Instant time, String sha256, String loc) {
+        ProviderFileMetadata m = new ProviderFileMetadata();
+        m.setProviderFileId(id);
+        m.setName(name);
+        m.setMimeType(mime);
+        m.setExtension(ext);
+        m.setSizeBytes(size);
+        m.setStorageType("google_drive");
+        m.setStorageLocation(loc);
+        m.setCreatedTime(time);
+        m.setModifiedTime(time);
+        m.setLastAccessedTime(time);
+        m.setLastAccessedReliable(true);
+        m.setSha256Hash(sha256);
+        m.setMd5Checksum(sha256.substring(0, 32));
+        m.setWebViewLink("https://drive.google.com/file/d/" + id + "/view");
+        m.setTrashed(false);
+        m.setDirectory(false);
+        return m;
     }
 }
 

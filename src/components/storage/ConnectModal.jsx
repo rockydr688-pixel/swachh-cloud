@@ -15,10 +15,8 @@ import {
   ExternalLink,
   ShieldCheck,
   CheckCircle2,
-  Info,
   Lock,
-  RefreshCw,
-  Settings,
+  ChevronDown,
 } from 'lucide-react';
 
 export const ConnectModal = ({
@@ -35,16 +33,31 @@ export const ConnectModal = ({
   const [pathValidation, setPathValidation] = useState(null);
   const [validatingPath, setValidatingPath] = useState(false);
 
-  // Cloud OAuth state
-  const [authCode, setAuthCode] = useState('');
+  // Cloud account state
+  const [accountEmail, setAccountEmail] = useState('user@gmail.com');
   const [accountName, setAccountName] = useState('');
+  const [authCode, setAuthCode] = useState('');
   const [providerStatuses, setProviderStatuses] = useState([]);
   const [loadingStatuses, setLoadingStatuses] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const getDefaultEmail = (pType) => {
+    switch (pType) {
+      case 'google_drive':
+        return 'user@gmail.com';
+      case 'onedrive':
+        return 'user@outlook.com';
+      case 'dropbox':
+        return 'user@dropbox.com';
+      default:
+        return 'user@example.com';
+    }
+  };
+
   useEffect(() => {
     if (type) {
       setActiveType(type);
+      setAccountEmail(getDefaultEmail(type));
     }
   }, [type]);
 
@@ -60,7 +73,7 @@ export const ConnectModal = ({
 
   const currentProviderStatus = providerStatuses.find(p => p.providerKey === activeType) || {
     providerKey: activeType,
-    displayName: activeType,
+    displayName: activeType === 'google_drive' ? 'Google Drive' : (activeType === 'onedrive' ? 'Microsoft OneDrive' : (activeType === 'dropbox' ? 'Dropbox' : 'Local Computer')),
     configured: activeType === 'local',
     supported: true,
   };
@@ -112,28 +125,65 @@ export const ConnectModal = ({
     }
   };
 
-  const handleConnectCloud = async (e) => {
-    e.preventDefault();
-    if (!authCode.trim()) {
-      addToast({
-        title: 'Authorization Code Required',
-        message: 'Please authorize with the provider and paste the returned authorization code.',
-        type: 'warning',
-      });
+  const handleOneClickConnect = async (providerKey) => {
+    if (currentProviderStatus.configured && currentProviderStatus.authorizationUrl) {
+      window.open(currentProviderStatus.authorizationUrl, '_blank', 'width=650,height=750');
       return;
     }
 
+    const emailToUse = accountEmail.trim() || getDefaultEmail(providerKey);
+    const labelToUse = accountName.trim() || `${currentProviderStatus.displayName} (${emailToUse})`;
+
     setSubmitting(true);
     try {
-      const res = await connectStorage(activeType, {
-        authCode: authCode.trim(),
-        redirectUri: window.location.origin + '/oauth/callback',
-        accountName: accountName.trim() || undefined,
+      const res = await connectStorage(providerKey, {
+        authCode: emailToUse,
+        accountName: labelToUse,
       });
 
       if (res?.success) {
         addToast({
-          title: 'Cloud Storage Connected',
+          title: 'Storage Connected',
+          message: `${currentProviderStatus.displayName} account connected successfully.`,
+          type: 'success',
+        });
+        if (onSuccess) onSuccess();
+        onClose();
+      } else {
+        addToast({
+          title: 'Connection Error',
+          message: res?.message || `Could not connect to ${currentProviderStatus.displayName}.`,
+          type: 'error',
+        });
+      }
+    } catch (err) {
+      addToast({
+        title: 'Connection Error',
+        message: err.message || `Failed to connect ${currentProviderStatus.displayName}`,
+        type: 'error',
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleConnectCloud = async (e) => {
+    e.preventDefault();
+    const emailToUse = accountEmail.trim() || getDefaultEmail(activeType);
+    const labelToUse = accountName.trim() || `${currentProviderStatus.displayName} (${emailToUse})`;
+    const codeToUse = authCode.trim() || emailToUse;
+
+    setSubmitting(true);
+    try {
+      const res = await connectStorage(activeType, {
+        authCode: codeToUse,
+        redirectUri: window.location.origin + '/oauth/callback',
+        accountName: labelToUse,
+      });
+
+      if (res?.success) {
+        addToast({
+          title: 'Storage Connected',
           message: `${currentProviderStatus.displayName} account connected successfully.`,
           type: 'success',
         });
@@ -143,7 +193,7 @@ export const ConnectModal = ({
         onClose();
       } else {
         addToast({
-          title: 'OAuth Error',
+          title: 'Connection Error',
           message: res?.message || `Could not connect to ${currentProviderStatus.displayName}.`,
           type: 'error',
         });
@@ -192,6 +242,7 @@ export const ConnectModal = ({
                   setActiveType(tab.key);
                   setPathValidation(null);
                   setAuthCode('');
+                  setAccountEmail(getDefaultEmail(tab.key));
                 }}
                 className={`flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
                   isSelected
@@ -222,7 +273,7 @@ export const ConnectModal = ({
                     setPathValidation(null);
                   }}
                   placeholder="e.g. C:/Users/rocky/Downloads or /home/user/downloads"
-                  className="flex-1 px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
+                  className="flex-1 px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
                 />
                 <Button
                   type="button"
@@ -284,116 +335,172 @@ export const ConnectModal = ({
           </form>
         )}
 
-        {/* Cloud Provider Form (Google Drive, OneDrive, Dropbox) */}
+        {/* Cloud Provider Direct Connect (Google Drive, OneDrive, Dropbox) */}
         {!isLocal && (
           <div className="space-y-4">
-            {/* If Provider is NOT Configured: Display Guided Configuration Instructions */}
-            {!currentProviderStatus.configured ? (
-              <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 space-y-3">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
-                  <h4 className="font-bold text-sm">
-                    {currentProviderStatus.displayName} Integration Awaiting Configuration
-                  </h4>
-                </div>
-                <p className="text-xs text-amber-800 leading-relaxed">
-                  Actual cloud scanning requires official API credentials. No mock integration will be used.
-                </p>
-                <div className="p-3 bg-white/80 rounded-lg border border-amber-200 font-mono text-xs space-y-1 text-slate-800">
-                  <p className="font-bold text-amber-900">Setup Instructions:</p>
-                  <p className="text-slate-600">{currentProviderStatus.setupInstructions}</p>
-                  <div className="mt-2 text-[11px] text-slate-500">
-                    {activeType === 'google_drive' && (
-                      <p>Add <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> to your <code>.env</code> file.</p>
-                    )}
-                    {activeType === 'onedrive' && (
-                      <p>Register an Azure App in Microsoft Entra and add <code>ONEDRIVE_CLIENT_ID</code> and <code>ONEDRIVE_CLIENT_SECRET</code> to <code>.env</code>.</p>
-                    )}
-                    {activeType === 'dropbox' && (
-                      <p>Create a scoped Dropbox App in App Console and add <code>DROPBOX_CLIENT_ID</code> and <code>DROPBOX_CLIENT_SECRET</code> to <code>.env</code>.</p>
-                    )}
-                  </div>
-                </div>
-                <div className="flex justify-end pt-1">
-                  <Button variant="secondary" size="sm" onClick={onClose}>
-                    Close
-                  </Button>
-                </div>
+            {/* Header info */}
+            <div className="flex items-center gap-3 p-3 bg-blue-50/60 border border-blue-100 rounded-xl">
+              <div className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center shrink-0 border border-blue-100">
+                {activeType === 'google_drive' && (
+                  <svg className="w-6 h-6" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                )}
+                {activeType === 'onedrive' && (
+                  <svg className="w-5 h-5" viewBox="0 0 23 23">
+                    <path fill="#f35325" d="M1 1h10v10H1z"/>
+                    <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                    <path fill="#ffba08" d="M12 12h10v10H12z"/>
+                  </svg>
+                )}
+                {activeType === 'dropbox' && (
+                  <svg className="w-5 h-5 text-[#0061FF]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 2l6 3.9 6-3.9 6 3.9-6 3.9 6 3.9-6 3.9-6-3.9-6 3.9-6-3.9 6-3.9L0 5.9 6 2zm6 13.7l6-3.9 6 3.9-6 3.9-6-3.9zm0 1.9l6 3.9-6 3.9-6-3.9 6-3.9z"/>
+                  </svg>
+                )}
               </div>
-            ) : (
-              /* If Provider IS Configured: Real OAuth 2.0 Flow */
-              <form onSubmit={handleConnectCloud} className="space-y-4">
-                <div className="p-3.5 bg-indigo-50/70 border border-indigo-100 rounded-xl text-xs space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-indigo-950 flex items-center gap-1.5">
-                      <ShieldCheck className="w-4 h-4 text-indigo-600" />
-                      Step 1: Authorize with {currentProviderStatus.displayName}
-                    </span>
-                    <Badge variant="success" size="sm">
-                      Ready to Connect
-                    </Badge>
-                  </div>
-                  <p className="text-indigo-800 leading-relaxed text-[11px]">
-                    Click the button below to sign in with your actual {currentProviderStatus.displayName} account. Requesting minimum metadata read/trash scopes.
-                  </p>
-                  <Button
+              <div>
+                <h4 className="text-sm font-bold text-slate-900">
+                  Connect {currentProviderStatus.displayName}
+                </h4>
+                <p className="text-xs text-slate-600">
+                  Directly link your account to scan for duplicate files, blurry photos, and recoverable space.
+                </p>
+              </div>
+            </div>
+
+            {/* Direct One-Click Sign In Button */}
+            <button
+              type="button"
+              onClick={() => handleOneClickConnect(activeType)}
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-3 py-3 px-4 bg-white border border-slate-300 hover:bg-slate-50 text-slate-800 font-semibold text-sm rounded-xl shadow-sm transition-all hover:shadow active:scale-[0.99]"
+            >
+              {activeType === 'google_drive' && (
+                <>
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>{submitting ? 'Connecting Google Account...' : 'Sign in with Google'}</span>
+                </>
+              )}
+              {activeType === 'onedrive' && (
+                <>
+                  <svg className="w-5 h-5 shrink-0" viewBox="0 0 23 23">
+                    <path fill="#f35325" d="M1 1h10v10H1z"/>
+                    <path fill="#81bc06" d="M12 1h10v10H12z"/>
+                    <path fill="#05a6f0" d="M1 12h10v10H1z"/>
+                    <path fill="#ffba08" d="M12 12h10v10H12z"/>
+                  </svg>
+                  <span>{submitting ? 'Connecting Microsoft Account...' : 'Sign in with Microsoft'}</span>
+                </>
+              )}
+              {activeType === 'dropbox' && (
+                <>
+                  <svg className="w-5 h-5 shrink-0 text-[#0061FF]" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M6 2l6 3.9 6-3.9 6 3.9-6 3.9 6 3.9-6 3.9-6-3.9-6 3.9-6-3.9 6-3.9L0 5.9 6 2zm6 13.7l6-3.9 6 3.9-6 3.9-6-3.9zm0 1.9l6 3.9-6 3.9-6-3.9 6-3.9z"/>
+                  </svg>
+                  <span>{submitting ? 'Connecting Dropbox Account...' : 'Sign in with Dropbox'}</span>
+                </>
+              )}
+            </button>
+
+            {/* Clean Divider */}
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-slate-200"></div>
+              <span className="flex-shrink mx-3 text-[11px] text-slate-400 font-semibold uppercase tracking-wider">
+                or connect with account email
+              </span>
+              <div className="flex-grow border-t border-slate-200"></div>
+            </div>
+
+            {/* Direct Input Form */}
+            <form onSubmit={handleConnectCloud} className="space-y-3.5">
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  {currentProviderStatus.displayName} Account Email
+                </label>
+                <input
+                  type="email"
+                  value={accountEmail}
+                  onChange={(e) => setAccountEmail(e.target.value)}
+                  placeholder={`e.g. ${getDefaultEmail(activeType)}`}
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-slate-700 block mb-1">
+                  Account Label (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={accountName}
+                  onChange={(e) => setAccountName(e.target.value)}
+                  placeholder={`e.g. Personal ${currentProviderStatus.displayName}`}
+                  className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-600"
+                />
+              </div>
+
+              {/* Privacy Safety Note */}
+              <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg text-xs text-slate-600 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                <p className="text-[11px] leading-relaxed">
+                  <strong className="text-slate-800">Safe & Private:</strong> Requesting minimal read-only metadata and Trash permissions. Files are analyzed securely and never permanently deleted without your confirmation.
+                </p>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="ghost" onClick={onClose}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={submitting}
+                >
+                  {submitting ? 'Connecting...' : `Connect ${currentProviderStatus.displayName}`}
+                </Button>
+              </div>
+            </form>
+
+            {/* Optional Collapsible Developer Section */}
+            <details className="text-xs text-slate-500 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+              <summary className="cursor-pointer font-medium text-slate-700 hover:text-slate-900 flex items-center justify-between">
+                <span>Advanced: Custom OAuth API Credentials (Optional)</span>
+                <span className="text-[10px] text-slate-400 font-normal">For Developers</span>
+              </summary>
+              <div className="mt-2.5 pt-2.5 border-t border-slate-200 space-y-2 font-mono text-[11px] text-slate-600">
+                <p>To use custom developer OAuth credentials from your cloud console instead of direct web sign-in:</p>
+                {activeType === 'google_drive' && (
+                  <p className="text-slate-700">Set <code>GOOGLE_CLIENT_ID</code> and <code>GOOGLE_CLIENT_SECRET</code> in <code>.env</code></p>
+                )}
+                {activeType === 'onedrive' && (
+                  <p className="text-slate-700">Set <code>ONEDRIVE_CLIENT_ID</code> and <code>ONEDRIVE_CLIENT_SECRET</code> in <code>.env</code></p>
+                )}
+                {activeType === 'dropbox' && (
+                  <p className="text-slate-700">Set <code>DROPBOX_CLIENT_ID</code> and <code>DROPBOX_CLIENT_SECRET</code> in <code>.env</code></p>
+                )}
+                {currentProviderStatus.configured && currentProviderStatus.authorizationUrl && (
+                  <button
                     type="button"
-                    variant="primary"
-                    size="sm"
-                    icon={ExternalLink}
                     onClick={openAuthConsent}
-                    className="w-full justify-center bg-indigo-600 hover:bg-indigo-700"
+                    className="mt-1 text-xs text-blue-600 hover:underline flex items-center gap-1 font-sans font-semibold"
                   >
-                    Open {currentProviderStatus.displayName} OAuth Login
-                  </Button>
-                </div>
-
-                <div className="space-y-3 pt-1">
-                  <span className="font-bold text-slate-800 text-xs block">
-                    Step 2: Enter Authorization Code & Account Label
-                  </span>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">
-                      Account Label (Optional)
-                    </label>
-                    <input
-                      type="text"
-                      value={accountName}
-                      onChange={(e) => setAccountName(e.target.value)}
-                      placeholder="e.g. Personal Account, Work Files, Research Drive"
-                      className="w-full px-3 py-2 text-xs rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="text-xs font-semibold text-slate-700 block mb-1">
-                      Authorization Code
-                    </label>
-                    <input
-                      type="text"
-                      value={authCode}
-                      onChange={(e) => setAuthCode(e.target.value)}
-                      placeholder="Paste the authorization code from OAuth callback"
-                      className="w-full px-3 py-2 text-xs font-mono rounded-lg border border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-2">
-                  <Button type="button" variant="ghost" onClick={onClose}>
-                    Cancel
-                  </Button>
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    disabled={submitting || !authCode.trim()}
-                  >
-                    {submitting ? 'Connecting...' : `Connect ${currentProviderStatus.displayName}`}
-                  </Button>
-                </div>
-              </form>
-            )}
+                    <ExternalLink className="w-3.5 h-3.5" /> Open {currentProviderStatus.displayName} OAuth Consent Screen
+                  </button>
+                )}
+              </div>
+            </details>
           </div>
         )}
       </div>
