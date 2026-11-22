@@ -5,12 +5,14 @@ server:
     mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
 
 spring:
+  main:
+    allow-bean-definition-overriding: true
   application:
     name: cloudclean-backend
   data:
     mongodb:
-      uri: ${MONGODB_URI:mongodb://localhost:27017/cloudclean}
-      auto-index-creation: true
+      uri: ${MONGODB_URI:mongodb://localhost:27017/cloudclean?serverSelectionTimeoutMS=2000}
+      auto-index-creation: false
   jackson:
     serialization:
       write-dates-as-timestamps: false

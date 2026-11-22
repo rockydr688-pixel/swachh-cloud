@@ -17,7 +17,6 @@ import org.springframework.data.mongodb.config.EnableMongoAuditing;
  * Enables auditing, transactions, and robust database health monitoring.
  */
 @Configuration
-@EnableMongoAuditing
 public class MongoConfig {
 
     private static final Logger log = LoggerFactory.getLogger(MongoConfig.class);
